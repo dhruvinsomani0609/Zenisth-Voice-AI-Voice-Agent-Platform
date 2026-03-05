@@ -1,0 +1,111 @@
+agent:
+  defaults:
+    greeting: Hello, how can I help you?
+    llm_model: gpt-4o-mini
+    stt_model: nova-2
+    temperature: 0.5
+    voice_model: aura-luna-en
+  models:
+    llm:
+    - id: gpt-4o-mini
+      label: GPT-4o Mini — Fast & cheap
+      provider: open_ai
+    - id: gpt-4o
+      label: GPT-4o — Smartest
+      provider: open_ai
+    - id: gpt-3.5-turbo
+      label: GPT-3.5 Turbo — Legacy
+      provider: open_ai
+    stt:
+    - id: nova-3
+      label: Nova 3 — Best accuracy
+    - id: nova-2
+      label: Nova 2 — Balanced
+    - id: nova
+      label: Nova — Fast
+    - id: enhanced
+      label: Enhanced
+    - id: base
+      label: Base — Fastest
+    voice:
+    - family: Aura 2
+      gender: female
+      id: aura-2-thalia-en
+      label: Thalia
+    - family: Aura 2
+      gender: female
+      id: aura-2-andromeda-en
+      label: Andromeda
+    - family: Aura 2
+      gender: female
+      id: aura-2-phoebe-en
+      label: Phoebe
+    - family: Aura 2
+      gender: female
+      id: aura-2-luna-en
+      label: Luna
+    - family: Aura 2
+      gender: female
+      id: aura-2-asteria-en
+      label: Asteria
+    - family: Aura 2
+      gender: male
+      id: aura-2-helios-en
+      label: Helios
+    - family: Aura 2
+      gender: male
+      id: aura-2-orion-en
+      label: Orion
+    - family: Aura 2
+      gender: male
+      id: aura-2-arcas-en
+      label: Arcas
+    - family: Aura
+      gender: female
+      id: aura-asteria-en
+      label: Asteria
+    - family: Aura
+      gender: female
+      id: aura-luna-en
+      label: Luna
+    - family: Aura
+      gender: female
+      id: aura-stella-en
+      label: Stella
+    - family: Aura
+      gender: female
+      id: aura-athena-en
+      label: Athena
+    - family: Aura
+      gender: female
+      id: aura-hera-en
+      label: Hera
+    - family: Aura
+      gender: male
+      id: aura-zeus-en
+      label: Zeus
+    - family: Aura
+      gender: male
+      id: aura-orion-en
+      label: Orion
+    - family: Aura
+      gender: male
+      id: aura-helios-en
+      label: Helios
+    - family: Aura
+      gender: male
+      id: aura-arcas-en
+      label: Arcas
+deepgram:
+  audio:
+    input:
+      encoding: linear16
+      sample_rate: 16000
+    output:
+      container: none
+      encoding: linear16
+      sample_rate: 16000
+  url: wss://agent.deepgram.com/v1/agent/converse
+server:
+  http_port: 8080
+  ws_port: 8765

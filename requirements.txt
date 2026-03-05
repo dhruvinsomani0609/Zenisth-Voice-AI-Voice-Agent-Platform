@@ -1,0 +1,18 @@
+# ── Original voice agent deps ─────────────────────────────────────────────────
+pyaudio
+websockets
+janus
+pyyaml
+python-dotenv
+
+# ── Vectorless RAG Pipeline ───────────────────────────────────────────────────
+docling
+nest_asyncio            # allows nested asyncio loops for sync function call dispatch
+pydantic>=2.0
+groq
+instructor
+supabase
+redis
+
+# ── Pipecat (voice pipeline — WebRTC transport) ───────────────────────────────
+pipecat-ai[deepgram,groq,cartesia]
