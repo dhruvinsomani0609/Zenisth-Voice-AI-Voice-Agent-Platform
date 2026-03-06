@@ -18,6 +18,12 @@ class AppConfig:
         self.api_key: str = os.environ.get("DEEPGRAM_API_KEY", "")
         self.base_dir: Path = BASE_DIR
 
+        # ── Calendar / Scheduling ──────────────────────────────────────────────
+        self.cal_api_key: str = os.environ.get("CAL_API_KEY", "")
+        self.cal_event_type_id: str = os.environ.get("CAL_EVENT_TYPE_ID", "")
+        self.cal_api_base_url: str = os.environ.get("CAL_API_BASE_URL", "https://api.cal.com/v2")
+        self.default_timezone: str = os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata")
+
     @property
     def deepgram_url(self) -> str:
         return self._raw["deepgram"]["url"]

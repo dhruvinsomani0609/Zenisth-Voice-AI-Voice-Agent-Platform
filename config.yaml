@@ -3,8 +3,8 @@ agent:
     greeting: Hello, how can I help you?
     llm_model: gpt-4o-mini
     stt_model: nova-2
-    temperature: 0.5
-    voice_model: aura-luna-en
+    temperature: 0.55
+    voice_model: aura-hera-en
   models:
     llm:
     - id: gpt-4o-mini

@@ -1,0 +1,55 @@
+<html><head><style>body{font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px;} table{border-collapse: collapse; width: 100%;} th, td{border: 1px solid #ddd; padding: 8px; text-align: left;} pre{background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto;} code{font-family: monospace; background: #eee; padding: 2px 4px; border-radius: 3px;}</style></head><body><h1>Product Requirements Document (PRD): Voice Agent Scheduling Integration</h1>
+<h2>1. Overview</h2>
+<p><strong>Project:</strong> Zenisth Voice Agent<br />
+<strong>Feature:</strong> Dynamic AI Appointment Scheduling<br />
+<strong>Provider:</strong> Cal.com API v2<br />
+<strong>Goal:</strong> Enable the voice agent to autonomously check calendar availability, verify user details (name/email), and book meetings via real-time external API calls without human intervention.</p>
+<h2>2. Core Architecture</h2>
+<p>The scheduling feature was upgraded from a static, in-memory mock to a live, production-ready integration. </p>
+<h3>2.1 Service Layer Abstraction (<code>app/services/calendar.py</code>)</h3>
+<p>To maintain flexibility and avoid vendor lock-in, the integration uses an Abstract Base Class (ABC).
+* <strong><code>BaseCalendarService</code>:</strong> Defines the strict <code>async</code> contract requiring <code>get_available_slots</code> and <code>create_booking</code> methods.
+* <strong><code>CalComService</code>:</strong> The concrete implementation using the Cal.com v2 REST API. Uses <code>httpx.AsyncClient</code> for highly concurrent, non-blocking requests to avoid locking the Deepgram STT websocket loop. </p>
+<h3>2.2 LLM Tool Definitions (<code>app/agent/functions.py</code>)</h3>
+<p>The system registers two primary function-calling tools with Groq/Llama-3:
+1. <strong><code>check_availability</code>:</strong> Accepts a natural language date (e.g. "tomorrow", "next Monday") and returns formatted slots. 
+2. <strong><code>book_appointment</code>:</strong> Accepts name, email, strict date, and time. Triggers the actual calendar invite email via the provider.</p>
+<h2>3. Technical Specifications &amp; Problem Resolutions</h2>
+<p>During implementation, several platform-specific bugs and API nuances were resolved to ensure stability across operating systems.</p>
+<h3>3.1 Date Parsing without External Dependencies</h3>
+<ul>
+<li><strong>Initial approach:</strong> Used the third-party <code>dateparser</code> library.</li>
+<li><strong>Problem:</strong> Environment inconsistency across virtual environments (<code>.venv</code>) caused fatal <code>ModuleNotFoundError</code> crashes during live calls.</li>
+<li><strong>Resolution:</strong> Replaced the library with a custom, highly robust <strong>Python Standard Library implementation</strong> (<code>datetime</code> &amp; <code>timedelta</code>). It successfully parses "today", "tomorrow", "next Friday", "March 10", and standard ISO formats with zero external dependencies.</li>
+</ul>
+<h3>3.2 Timezone Resolution Framework</h3>
+<ul>
+<li><strong>Problem:</strong> Timezone conversion (<code>Asia/Kolkata</code>) crashed on Windows environments because Windows does not ship with the IANA timezone database, causing <code>zoneinfo.ZoneInfoNotFoundError</code>.</li>
+<li><strong>Resolution:</strong> Added the <code>tzdata</code> (Time Zone Database) package directly to the project's <code>requirements.txt</code> and <code>.venv</code>. </li>
+<li><strong>Mechanism:</strong> Refactored all time formatters to use Python 3.9+ native <code>zoneinfo</code> module instead of <code>pytz</code>, ensuring forward-compatible and lightweight timezone resolution. </li>
+</ul>
+<h3>3.3 Cal.com API v2 Nuances</h3>
+<p>The implementation accurately handles Cal.com's strict REST API v2 requirements:
+* <strong>Slots Endpoint:</strong> Discovered that <code>/v2/slots/available</code> is deprecated. Successfully migrated to <code>GET /v2/slots</code> using <code>start</code> and <code>end</code> ISO 8601 boundary query parameters.
+* <strong>Bookings Endpoint:</strong> Discovered a header conflict. The <code>/v2/bookings</code> POST endpoint explicitly requires the older <code>cal-api-version: 2024-08-13</code> header to authorize, while the slots endpoint requires <code>2024-09-04</code>. A dynamic header injector <code>_auth_headers(for_booking=True)</code> was implemented to handle this transparently.</p>
+<h2>4. Conversational UX &amp; Guardrails (<code>app/agent/settings.py</code>)</h2>
+<p>To prevent the agent from sending sensitive calendar invites to hallucinatory or misheard domains, a strict <strong>4-Step Scheduling Protocol</strong> was injected directly into the LLM System Prompt:</p>
+<p><strong>The Protocol:</strong>
+1. <strong>Check first:</strong> The agent is banned from confirming times before explicitly calling <code>check_availability</code>. It must only read out 2 to 3 slots to avoid overwhelming the user via audio.
+2. <strong>Confirm slot:</strong> Wait for user selection.
+3. <strong>Verify email spelling:</strong> Upon receiving an email address, the agent is forced to <em>always read it back letter-by-letter</em> (e.g. "d-h-r-u-v-i-n dot s-o-m-a-n-i at zenisth dot ai, is that correct?") before proceeding.
+4. <strong>Error Recovery:</strong> If the booking API returns 409 (Slot Taken) or 422 (Invalid Data), the agent must gracefully apologize in plain English and prompt the user to re-spell the email or pick a new time.</p>
+<h2>5. Configuration &amp; Setup</h2>
+<p>The system is controlled via <code>.env</code> variables, preventing hardcoded secrets.</p>
+<p><strong>Required <code>.env</code> Variables:</strong>
+```env</p>
+<h1>── Scheduling / Cal.com ──</h1>
+<p>CAL_API_KEY=cal_live_xxxxxxxxx              # From cal.com/settings/developer
+CAL_EVENT_TYPE_ID=12345                     # The specific meeting type to book
+CAL_API_BASE_URL=https://api.cal.com/v2     # Hardcoded base path
+DEFAULT_TIMEZONE=Asia/Kolkata               # Global fallback timezone
+```</p>
+<p><strong>Required Packages (<code>requirements.txt</code>):</strong>
+<code>text
+httpx&gt;=0.27.0
+tzdata&gt;=2024.1</code></p></body></html>

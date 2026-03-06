@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import os
+import re
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -10,39 +11,198 @@ _appointments: list[dict] = []
 _dnc_list: list[dict] = []
 
 
+# ── Date parsing helper (stdlib only — no external deps) ──────────────────────
+def _parse_date(date_str: str) -> str:
+    """
+    Convert natural language date strings into strict YYYY-MM-DD format.
+    Uses only Python stdlib (datetime, timedelta) — no external packages needed.
+
+    Handles:
+    - Already-ISO strings:  "2026-03-07"         → "2026-03-07"
+    - Relative:             "today", "tomorrow"   → actual date
+    - Day names:            "Monday", "next Friday", "this Wednesday"
+    - Month names:          "March 7", "7 March 2026"
+    - Ordinals:             "7th March", "March 7th"
+    """
+    raw = date_str.strip()
+
+    # 1. Already ISO 8601 — return as-is
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+        return raw
+
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    lower = raw.lower()
+
+    # 2. Absolute relative keywords
+    if lower in ("today", "now"):
+        return today.strftime("%Y-%m-%d")
+    if lower in ("tomorrow", "tmr", "tmrw"):
+        return (today + timedelta(days=1)).strftime("%Y-%m-%d")
+    if lower in ("yesterday",):
+        return (today - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 3. Normalise ordinals: "7th" → "7", "3rd" → "3"
+    normalised = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", lower, flags=re.I)
+
+    # 4. Weekday names (e.g. "next Monday", "this Friday", "Monday")
+    _WEEKDAYS = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+    }
+    for day_name, day_idx in _WEEKDAYS.items():
+        if day_name in normalised:
+            current_weekday = today.weekday()
+            days_ahead = day_idx - current_weekday
+            # "next X" always means the X that is at least 7 days away
+            if "next" in normalised:
+                days_ahead = days_ahead % 7 or 7
+                days_ahead += 7 if days_ahead <= 7 else 0
+            else:
+                if days_ahead <= 0:
+                    days_ahead += 7
+            return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    # 5. Month name + day (e.g. "March 7", "7 March", "March 7 2026")
+    _MONTHS = {
+        "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
+        "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6,
+        "july": 7, "jul": 7, "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
+        "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
+    }
+    for month_name, month_num in _MONTHS.items():
+        if month_name in normalised:
+            # Extract digits that could be day or year
+            numbers = re.findall(r"\d+", normalised)
+            year = today.year
+            day = None
+            for n in numbers:
+                n_int = int(n)
+                if 1900 <= n_int <= 2100:
+                    year = n_int
+                elif 1 <= n_int <= 31:
+                    day = n_int
+            if day:
+                try:
+                    candidate = datetime(year, month_num, day)
+                    # If the date has passed this year, assume next year
+                    if candidate < today and year == today.year:
+                        candidate = datetime(year + 1, month_num, day)
+                    return candidate.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+
+    # 6. Pure numeric formats: DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY
+    for fmt in ("%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d/%m/%y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(normalised, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    # 7. Fallback — return the raw string and let the Cal.com API surface any error
+    return raw
+
+
+def _normalise_timezone(tz_str: str) -> str:
+    """Map common spoken timezones to IANA equivalents."""
+    _MAP = {
+        "IST": "Asia/Kolkata",
+        "EST": "America/New_York",
+        "CST": "America/Chicago",
+        "MST": "America/Denver",
+        "PST": "America/Los_Angeles",
+        "GMT": "Europe/London",
+        "UTC": "UTC",
+        "BST": "Europe/London",
+        "CET": "Europe/Paris",
+        "EET": "Europe/Athens",
+        "JST": "Asia/Tokyo",
+        "AEST": "Australia/Sydney",
+    }
+    key = tz_str.strip().upper()
+    return _MAP.get(key, tz_str)  # if not mapped, pass through (may be IANA already)
+
+
 # ── Individual handlers ────────────────────────────────────────────────────────
+
 def _book_appointment(p: dict) -> dict:
-    appt = {
-        **p,
-        "appointment_id": f"DEMO{len(_appointments) + 1:04d}",
-        "booked_at": datetime.now().isoformat(),
-        "status": "confirmed",
-        "timezone": p.get("timezone", "IST"),
-    }
-    _appointments.append(appt)
-    return {
-        "success": True,
-        "appointment_id": appt["appointment_id"],
-        "message": (
-            f"Demo confirmed for {p.get('date')} at {p.get('time')} "
-            f"{p.get('timezone', 'IST')}. Invite sent to {p.get('email')}."
-        ),
-    }
+    """
+    Creates a real booking via Cal.com.
+    Runs the async call synchronously within Deepgram's sync dispatch.
+    """
+    from app.services.calendar import cal_service
+
+    name = p.get("name", "")
+    email = p.get("email", "")
+    date_raw = p.get("date", "")
+    time_str = p.get("time", "")
+    tz_raw = p.get("timezone", os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata"))
+
+    date = _parse_date(date_raw)
+    tz = _normalise_timezone(tz_raw)
+
+    print(
+        f"[functions] book_appointment | name={name!r} email={email!r} "
+        f"date={date!r} time={time_str!r} tz={tz!r}"
+    )
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            cal_service.create_booking(
+                name=name,
+                email=email,
+                date=date,
+                time=time_str,
+                timezone=tz,
+            )
+        )
+    except Exception as exc:
+        result = {
+            "success": False,
+            "error": str(exc),
+            "message": (
+                "I encountered an unexpected error while booking the appointment. "
+                "Please try again in a moment."
+            ),
+        }
+
+    if result.get("success"):
+        _appointments.append({**result, "name": name, "date": date, "time": time_str})
+
+    return result
 
 
 def _check_availability(p: dict) -> dict:
-    return {
-        "date": p.get("date"),
-        "timezone": "IST",
-        "available_slots": [
-            "10:00 AM",
-            "11:00 AM",
-            "12:00 PM",
-            "2:00 PM",
-            "3:00 PM",
-            "4:00 PM",
-        ],
-    }
+    """
+    Checks real available slots from Cal.com for a given date.
+    Date parsing via dateparser handles sloppy LLM input ("next Tuesday", "tomorrow").
+    """
+    from app.services.calendar import cal_service
+
+    date_raw = p.get("date", "")
+    tz_raw = p.get("timezone", os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata"))
+
+    date = _parse_date(date_raw)
+    tz = _normalise_timezone(tz_raw)
+
+    print(f"[functions] check_availability | date={date!r} tz={tz!r}")
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            cal_service.get_available_slots(date=date, timezone=tz)
+        )
+    except Exception as exc:
+        result = {
+            "success": False,
+            "error": str(exc),
+            "message": (
+                "I had trouble fetching available slots. "
+                "Please try again or provide a different date."
+            ),
+        }
+
+    return result
 
 
 def _transfer_to_human(p: dict) -> dict:
@@ -101,20 +261,30 @@ FUNCTION_REGISTRY: dict[str, dict] = {
     "book_appointment": {
         "schema": {
             "name": "book_appointment",
-            "description": "Book a 15-minute demo when the prospect agrees.",
+            "description": (
+                "Book an appointment on the calendar once the user confirms their "
+                "name, email, date, and time. ALWAYS confirm the email address by "
+                "reading it back before calling this tool."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Prospect's full name"},
+                    "name": {"type": "string", "description": "Attendee's full name"},
                     "email": {
                         "type": "string",
-                        "description": "Email for calendar invite",
+                        "description": "Attendee email address for the calendar invite",
                     },
-                    "date": {"type": "string", "description": "YYYY-MM-DD"},
-                    "time": {"type": "string", "description": "e.g. '3:00 PM'"},
+                    "date": {
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD or natural language (e.g. 'next Friday')",
+                    },
+                    "time": {
+                        "type": "string",
+                        "description": "Time string, e.g. '3:00 PM' or '15:00'",
+                    },
                     "timezone": {
                         "type": "string",
-                        "description": "e.g. 'IST'. Default: IST",
+                        "description": "IANA or abbreviated timezone, e.g. 'IST', 'Asia/Kolkata'. Default: IST",
                     },
                 },
                 "required": ["name", "email", "date", "time"],
@@ -125,11 +295,22 @@ FUNCTION_REGISTRY: dict[str, dict] = {
     "check_availability": {
         "schema": {
             "name": "check_availability",
-            "description": "Check available demo slots before offering specific times.",
+            "description": (
+                "Check available appointment slots for a given date. "
+                "Call this before offering or confirming any meeting time. "
+                "Present only 2-3 of the returned slots to the user."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "date": {"type": "string", "description": "YYYY-MM-DD"},
+                    "date": {
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD or natural language (e.g. 'tomorrow', 'next Monday')",
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "description": "IANA or abbreviated timezone, e.g. 'IST'. Default: IST",
+                    },
                 },
                 "required": ["date"],
             },
