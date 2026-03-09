@@ -22,6 +22,12 @@ function getConfig() {
         system_prompt: document.getElementById('cfg-prompt').value.trim(),
         greeting: document.getElementById('cfg-greeting').value.trim(),
         document_id: typeof activeDocId !== 'undefined' ? activeDocId : null,
+        // New settings fields — read from Settings Modal (persisted to localStorage on save)
+        voice_speed: parseFloat(localStorage.getItem('voice_speed') || '1.0'),
+        voice_emotion: localStorage.getItem('voice_emotion') || 'helpful',
+        barge_in: localStorage.getItem('barge_in') !== 'false',
+        endpointing: parseInt(localStorage.getItem('endpointing') || '800', 10),
+        filler_audio: localStorage.getItem('filler_audio') === 'true',
     };
 }
 function toggleCfg() {
@@ -277,6 +283,8 @@ function stopMic() {
 }
 
 // ══ AUDIO OUTPUT ══
+let nextPlayTime = 0;
+
 function playAgentAudio(buffer) {
     if (!audioCtx) return;
     const i16 = new Int16Array(buffer);
@@ -287,16 +295,28 @@ function playAgentAudio(buffer) {
     // The browser will upsample this to your hardware's native rate (44.1k/48k) automatically.
     const ab = audioCtx.createBuffer(1, f32.length, 16000);
     ab.getChannelData(0).set(f32);
-    agentAudioQueue.push(ab);
-    if (!isPlayingAudio) drainQueue();
-}
-function drainQueue() {
-    if (!agentAudioQueue.length || !audioCtx) { isPlayingAudio = false; return; }
-    isPlayingAudio = true;
-    const buf = agentAudioQueue.shift();
+
     const src = audioCtx.createBufferSource();
-    src.buffer = buf; src.connect(audioCtx.destination);
-    src.onended = drainQueue; src.start();
+    src.buffer = ab;
+    src.connect(audioCtx.destination);
+
+    // Ensure we don't schedule in the past if the queue fell behind.
+    // We add a 100ms (0.1s) jitter buffer to let the next few network chunks arrive,
+    // which prevents the audio from under-running and producing a vibrating/stuttering sound.
+    if (nextPlayTime < audioCtx.currentTime) {
+        nextPlayTime = audioCtx.currentTime + 0.1;
+    }
+
+    src.start(nextPlayTime);
+    nextPlayTime += ab.duration;
+
+    // Handle state so we know when agent finished
+    isPlayingAudio = true;
+    src.onended = () => {
+        if (audioCtx.currentTime >= nextPlayTime - 0.05) {
+            isPlayingAudio = false;
+        }
+    };
 }
 
 // ══ WAVEFORM ══
@@ -500,7 +520,7 @@ function resetAll() {
     if (callActive) endCall();
     transcriptItems = []; fnItems = []; appointments = []; dncList = [];
     stats = { turns: 0, fns: 0, latencies: [] };
-    agentAudioQueue = []; isPlayingAudio = false;
+    agentAudioQueue = []; isPlayingAudio = false; nextPlayTime = 0;
     document.getElementById('transcript').innerHTML = `<div class="empty"><div class="icon">🎙️</div><p>Press <strong>Start Call</strong> to begin.<br>Live transcript will appear here.</p></div>`;
     document.getElementById('fn-log').innerHTML = '<div style="color:var(--t3);font-size:.78rem;text-align:center;padding:24px">No actions yet</div>';
     document.getElementById('fn-count').textContent = '0';
@@ -522,7 +542,6 @@ function openSettingsModal() {
     document.getElementById('settings-modal').classList.add('open');
     populateSettingsDropdowns();
     loadDocuments();
-    // load saved system prompt
     fetch('/api/config').then(r => r.json()).then(d => {
         document.getElementById('sm-prompt').value = d.system_prompt || '';
         updateCharCount();
@@ -575,17 +594,44 @@ async function populateSettingsDropdowns() {
             if (m.id === defaults.llm_model) o.selected = true; ls.appendChild(o);
         });
 
-        // Scalars
+        // Scalars — Temperature
         const t = parseFloat(defaults.temperature) || 0.7;
         document.getElementById('sm-temp').value = t;
         document.getElementById('sm-temp-val').textContent = t.toFixed(2);
         document.getElementById('sm-greeting').value = defaults.greeting || '';
+
+        // ── New fields — prefer localStorage (user-saved) over config defaults ──
+        const savedSpeed = parseFloat(localStorage.getItem('voice_speed') ?? defaults.voice_speed ?? 1.0);
+        document.getElementById('sm-voice-speed').value = savedSpeed;
+        document.getElementById('sm-voice-speed-val').textContent = savedSpeed.toFixed(2) + '×';
+
+        const savedEmotion = localStorage.getItem('voice_emotion') || defaults.voice_emotion || 'helpful';
+        document.getElementById('sm-voice-emotion').value = savedEmotion;
+
+        const savedBargeIn = localStorage.getItem('barge_in');
+        const bargeInVal = savedBargeIn !== null ? savedBargeIn !== 'false' : (defaults.barge_in !== false);
+        document.getElementById('sm-barge-in').checked = bargeInVal;
+
+        const savedEndpointing = parseInt(localStorage.getItem('endpointing') ?? defaults.endpointing ?? 800, 10);
+        document.getElementById('sm-endpointing').value = savedEndpointing;
+        document.getElementById('sm-endpointing-val').textContent = savedEndpointing + 'ms';
+
+        const savedFiller = localStorage.getItem('filler_audio');
+        const fillerVal = savedFiller !== null ? savedFiller === 'true' : (defaults.filler_audio === true);
+        document.getElementById('sm-filler-audio').checked = fillerVal;
+
     } catch (e) { console.warn('Settings load failed:', e); }
 }
 
 async function saveSettings() {
     const statusEl = document.getElementById('save-status');
     try {
+        const voiceSpeed = parseFloat(document.getElementById('sm-voice-speed').value);
+        const voiceEmotion = document.getElementById('sm-voice-emotion').value;
+        const bargeIn = document.getElementById('sm-barge-in').checked;
+        const endpointing = parseInt(document.getElementById('sm-endpointing').value, 10);
+        const fillerAudio = document.getElementById('sm-filler-audio').checked;
+
         const payload = {
             voice_model: document.getElementById('sm-voice').value,
             stt_model: document.getElementById('sm-stt').value,
@@ -593,6 +639,11 @@ async function saveSettings() {
             temperature: parseFloat(document.getElementById('sm-temp').value),
             greeting: document.getElementById('sm-greeting').value.trim(),
             system_prompt: document.getElementById('sm-prompt').value.trim(),
+            voice_speed: voiceSpeed,
+            voice_emotion: voiceEmotion,
+            barge_in: bargeIn,
+            endpointing: endpointing,
+            filler_audio: fillerAudio,
         };
         const r = await fetch('/api/config/save', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -601,7 +652,14 @@ async function saveSettings() {
         const d = await r.json();
         if (d.error) throw new Error(d.error);
 
-        // Also sync the left panel dropdowns
+        // Persist new fields to localStorage for use during next call
+        localStorage.setItem('voice_speed', voiceSpeed);
+        localStorage.setItem('voice_emotion', voiceEmotion);
+        localStorage.setItem('barge_in', bargeIn);
+        localStorage.setItem('endpointing', endpointing);
+        localStorage.setItem('filler_audio', fillerAudio);
+
+        // Sync left panel dropdowns
         ['voice', 'stt', 'llm'].forEach(k => {
             const el = document.getElementById('cfg-' + k);
             if (el) el.value = payload[k + '_model'] || payload[k];
@@ -819,3 +877,11 @@ function escAttr(s) { return escHtml(s).replace(/'/g, '&#39;'); }
 document.getElementById('settings-modal').addEventListener('click', function (e) {
     if (e.target === this) closeSettingsModal();
 });
+
+// ── Filler Audio relay helper ──────────────────────────────────────────────────
+// Called by handleEvent when a function_call event fires, if filler audio is ON,
+// the server relay already injected the phrase. This is a no-op stub for future
+// client-side filler injection if needed.
+function _maybeInjectFiller() {
+    // Intentionally empty — filler is handled server-side in server.py relay
+}

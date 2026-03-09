@@ -72,6 +72,25 @@ def build_settings(user_cfg: dict) -> dict:
     )
     greeting = (user_cfg.get("greeting") or "").strip() or d["greeting"]
 
+    # ── New fields ────────────────────────────────────────────────────────────
+    voice_speed = float(
+        user_cfg.get("voice_speed")
+        if user_cfg.get("voice_speed") is not None
+        else d.get("voice_speed", 1.0)
+    )
+
+    # barge_in can come as bool True/False or string "true"/"false"
+    _barge_raw = user_cfg.get("barge_in")
+    if _barge_raw is None:
+        _barge_raw = d.get("barge_in", True)
+    barge_in = _barge_raw if isinstance(_barge_raw, bool) else str(_barge_raw).lower() != "false"
+
+    endpointing = int(
+        user_cfg.get("endpointing")
+        if user_cfg.get("endpointing") is not None
+        else d.get("endpointing", 800)
+    )
+
     from datetime import datetime
 
     custom_prompt = (user_cfg.get("system_prompt") or "").strip()
@@ -87,7 +106,13 @@ def build_settings(user_cfg: dict) -> dict:
         "type": "Settings",
         "audio": cfg.audio_config,
         "agent": {
-            "listen": {"provider": {"type": "deepgram", "model": stt_model}},
+            "listen": {
+                "provider": {
+                    "type": "deepgram",
+                    "model": stt_model,
+                    "endpointing": endpointing,
+                }
+            },
             "think": {
                 "provider": {
                     "type": "open_ai",
@@ -97,7 +122,12 @@ def build_settings(user_cfg: dict) -> dict:
                 "prompt": prompt,
                 "functions": get_schemas(),
             },
-            "speak": {"provider": {"type": "deepgram", "model": voice_model}},
+            "speak": {
+                "provider": {
+                    "type": "deepgram",
+                    "model": voice_model,
+                }
+            },
             "greeting": greeting,
         },
     }

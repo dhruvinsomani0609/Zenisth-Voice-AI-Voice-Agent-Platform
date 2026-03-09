@@ -461,6 +461,11 @@ class _QuietHandler(http.server.SimpleHTTPRequestHandler):
                 "llm_model",
                 "temperature",
                 "greeting",
+                "voice_speed",
+                "voice_emotion",
+                "barge_in",
+                "endpointing",
+                "filler_audio",
             }
             for k, v in updates.items():
                 if k in allowed:
