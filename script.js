@@ -1,6 +1,7 @@
 
 // ══ STATE ══
-const WS_URL = 'ws://localhost:8765';
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = `${protocol}//${window.location.host}/ws`;
 let ws = null, audioCtx = null, micStream = null;
 let connected = false, callActive = false;
 let sessionStart = null, timerInterval = null;

@@ -2,16 +2,16 @@ agent:
   defaults:
     barge_in: true
     endpointing: 800
-    filler_audio: true
+    filler_audio: false
     greeting: Hi, this is Hardik calling from EshiaBIM. We work with architecture
       and construction teams on BIM modelling and digital construction support. Do
       you have a quick five minutes to talk right now?
     llm_model: gpt-4o-mini
-    stt_model: nova-2
+    stt_model: nova-3
     temperature: 0.6
     voice_emotion: helpful
-    voice_model: aura-2-phoebe-en
-    voice_speed: 1
+    voice_model: aura-2-asteria-en
+    voice_speed: 0.95
   models:
     llm:
     - id: gpt-4o-mini
@@ -57,10 +57,6 @@ agent:
       label: Asteria
     - family: Aura 2
       gender: male
-      id: aura-2-helios-en
-      label: Helios
-    - family: Aura 2
-      gender: male
       id: aura-2-orion-en
       label: Orion
     - family: Aura 2
@@ -95,10 +91,6 @@ agent:
       gender: male
       id: aura-orion-en
       label: Orion
-    - family: Aura
-      gender: male
-      id: aura-helios-en
-      label: Helios
     - family: Aura
       gender: male
       id: aura-arcas-en

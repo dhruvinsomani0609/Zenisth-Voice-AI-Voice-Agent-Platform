@@ -4,6 +4,9 @@ websockets
 janus
 pyyaml
 python-dotenv
+fastapi
+uvicorn
+python-multipart
 
 # ── Vectorless RAG Pipeline ───────────────────────────────────────────────────
 docling
