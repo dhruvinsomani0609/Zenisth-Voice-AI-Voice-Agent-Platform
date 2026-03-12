@@ -2,7 +2,7 @@
 
 A high-performance, real-time AI Voice Agent capable of handling natural conversations, complex tool execution, and context-aware knowledge retrieval. Built with a unified **FastAPI** backend and a low-latency **WebSocket** architecture.
 
-![Zenisth Banner](https://github.com/user-attachments/assets/46201e72-675b-43bc-bd3c-3c4d5e6f7a8b)
+![Zenisth Banner](image.png)
 
 ## 🚀 Key Features
 
