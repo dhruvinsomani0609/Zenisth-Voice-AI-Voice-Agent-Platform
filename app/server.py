@@ -324,19 +324,32 @@ async def _handle_function_call(fn: dict, dg_ws, browser_ws: WebSocket, user_cfg
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    if not cfg.api_key:
-        await websocket.send_json({"event": "error", "message": "DEEPGRAM_API_KEY not set"})
-        await websocket.close()
-        return
 
     try:
         # Initial config
         first = await websocket.receive_text()
         user_cfg = json.loads(first) if first.startswith("{") else {}
         
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] WS connected")
+        # Determine which API key to use:
+        # 1. Custom key from the frontend
+        # 2. Server's default key from .env
+        client_api_key = user_cfg.get("deepgram_api_key")
+        api_key = client_api_key or cfg.api_key
+
+        if not api_key:
+            await websocket.send_json({
+                "event": "error", 
+                "message": "Deepgram API key missing. Please provide one in the Developer settings."
+            })
+            await websocket.close()
+            return
+
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] WS connected {'(using custom key)' if client_api_key else ''}")
         
-        async with websockets.connect(cfg.deepgram_url, additional_headers={"Authorization": f"Token {cfg.api_key}"}) as dg_ws:
+        async with websockets.connect(
+            cfg.deepgram_url, 
+            additional_headers={"Authorization": f"Token {api_key}"}
+        ) as dg_ws:
             await dg_ws.send(json.dumps(build_settings(user_cfg)))
             
             async def _keep_alive():

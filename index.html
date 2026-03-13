@@ -198,6 +198,7 @@
         <div class="sm-tab" onclick="switchTab('conversation')" id="tab-conversation">💬 Conversation</div>
         <div class="sm-tab" onclick="switchTab('intelligence')" id="tab-intelligence">🤖 Intelligence</div>
         <div class="sm-tab" onclick="switchTab('knowledge')" id="tab-knowledge">📚 Knowledge Base</div>
+        <div class="sm-tab" onclick="switchTab('developer')" id="tab-developer">👨‍💻 Developer</div>
       </div>
 
       <!-- Tab 1: Voice & Speech -->
@@ -335,6 +336,20 @@
           </div>
           <div id="doc-list-body">
             <div class="doc-empty">Loading&hellip;</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Developer -->
+      <div class="sm-pane" id="pane-developer">
+        <div class="sf-row">
+          <label>Deepgram API Key <span class="sf-hint">Provide your own key for testing. Leave blank to use server
+              default.</span></label>
+          <input type="password" id="sm-api-key" placeholder="Enter your Deepgram API Key (starts with dg_)..."
+            style="letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+          <div style="margin-top: 8px; font-size: 0.72rem; color: var(--t3); line-height: 1.4;">
+            <p>Your API key is stored locally in your browser and is only used to establish the voice connection. It is
+              never saved on our server.</p>
           </div>
         </div>
       </div>

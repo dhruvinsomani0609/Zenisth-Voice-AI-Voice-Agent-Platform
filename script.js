@@ -29,6 +29,7 @@ function getConfig() {
         barge_in: localStorage.getItem('barge_in') !== 'false',
         endpointing: parseInt(localStorage.getItem('endpointing') || '800', 10),
         filler_audio: localStorage.getItem('filler_audio') === 'true',
+        deepgram_api_key: localStorage.getItem('deepgram_api_key') || null,
     };
 }
 function toggleCfg() {
@@ -621,6 +622,9 @@ async function populateSettingsDropdowns() {
         const fillerVal = savedFiller !== null ? savedFiller === 'true' : (defaults.filler_audio === true);
         document.getElementById('sm-filler-audio').checked = fillerVal;
 
+        // Custom API Key
+        document.getElementById('sm-api-key').value = localStorage.getItem('deepgram_api_key') || '';
+
     } catch (e) { console.warn('Settings load failed:', e); }
 }
 
@@ -659,6 +663,7 @@ async function saveSettings() {
         localStorage.setItem('barge_in', bargeIn);
         localStorage.setItem('endpointing', endpointing);
         localStorage.setItem('filler_audio', fillerAudio);
+        localStorage.setItem('deepgram_api_key', document.getElementById('sm-api-key').value.trim());
 
         // Sync left panel dropdowns
         ['voice', 'stt', 'llm'].forEach(k => {
