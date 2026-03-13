@@ -50,72 +50,83 @@ def _drain_queue(q: asyncio.Queue) -> None:
 
 
 async def gemini_to_client(session, websocket):
-    """Receive from Gemini and send to the browser client."""
+    """Receive from Gemini and send to the browser client.
+
+    session.receive() is a *single-turn* iterator in the google-genai SDK: it
+    exhausts (breaks) as soon as Gemini sends turn_complete=True for the current
+    model turn.  We therefore wrap it in an outer ``while True`` so the receiver
+    immediately re-enters session.receive() after each turn completes, keeping
+    the connection alive for the whole conversation.
+    """
     try:
-        async for response in session.receive():
-            server_content = response.server_content
-            if server_content is not None:
-                model_turn = server_content.model_turn
-                if model_turn is not None:
-                    for part in model_turn.parts:
-                        # Forward audio chunks
-                        if part.inline_data:
-                            # It's an audio chunk over binary
-                            await websocket.send(part.inline_data.data)
+        turn = 0
+        while True:
+            turn += 1
+            logger.info(f"Receiver: waiting for turn {turn}.")
+            async for response in session.receive():
+                server_content = response.server_content
+                if server_content is not None:
+                    model_turn = server_content.model_turn
+                    if model_turn is not None:
+                        for part in model_turn.parts:
+                            # Forward audio chunks
+                            if part.inline_data:
+                                # It's an audio chunk over binary
+                                await websocket.send(part.inline_data.data)
 
-                        # Forward text scripts (Transcripts)
-                        if part.text:
-                            await websocket.send(
-                                json.dumps({"type": "transcript", "text": part.text})
-                            )
+                            # Forward text scripts (Transcripts)
+                            if part.text:
+                                await websocket.send(
+                                    json.dumps({"type": "transcript", "text": part.text})
+                                )
 
-            # Check for tool calls
-            tool_calls = response.tool_call
-            if tool_calls and getattr(tool_calls, "function_calls", None):
-                function_responses = []
-                for function_call in tool_calls.function_calls:
-                    logger.info(f"Gemini requested tool call: {function_call.name}")
+                # Check for tool calls
+                tool_calls = response.tool_call
+                if tool_calls and getattr(tool_calls, "function_calls", None):
+                    function_responses = []
+                    for function_call in tool_calls.function_calls:
+                        logger.info(f"Gemini requested tool call: {function_call.name}")
 
-                    # Execute local tool
-                    kwargs = function_call.args if function_call.args else {}
-                    await _send_json(
-                        websocket,
-                        {
-                            "type": "tool_call",
-                            "id": function_call.id,
-                            "name": function_call.name,
-                            "args": kwargs,
-                        },
-                    )
-                    result = await dispatch(function_call.name, kwargs)
-                    await _send_json(
-                        websocket,
-                        {
-                            "type": "tool_result",
-                            "id": function_call.id,
-                            "name": function_call.name,
-                            "result": result,
-                        },
-                    )
-
-                    # Store response
-                    function_responses.append(
-                        types.FunctionResponse(
-                            id=function_call.id,
-                            name=function_call.name,
-                            response=(
-                                result
-                                if isinstance(result, dict)
-                                else {"result": result}
-                            ),
+                        # Execute local tool
+                        kwargs = function_call.args if function_call.args else {}
+                        await _send_json(
+                            websocket,
+                            {
+                                "type": "tool_call",
+                                "id": function_call.id,
+                                "name": function_call.name,
+                                "args": kwargs,
+                            },
                         )
-                    )
+                        result = await dispatch(function_call.name, kwargs)
+                        await _send_json(
+                            websocket,
+                            {
+                                "type": "tool_result",
+                                "id": function_call.id,
+                                "name": function_call.name,
+                                "result": result,
+                            },
+                        )
 
-                # Send the responses back to Gemini
-                if function_responses:
-                    await session.send_tool_response(
-                        function_responses=function_responses
-                    )
+                        # Store response
+                        function_responses.append(
+                            types.FunctionResponse(
+                                id=function_call.id,
+                                name=function_call.name,
+                                response=(
+                                    result
+                                    if isinstance(result, dict)
+                                    else {"result": result}
+                                ),
+                            )
+                        )
+
+                    # Send the responses back to Gemini
+                    if function_responses:
+                        await session.send_tool_response(
+                            function_responses=function_responses
+                        )
     except asyncio.CancelledError:
         logger.info("Gemini to Client task cancelled")
     except Exception as e:
