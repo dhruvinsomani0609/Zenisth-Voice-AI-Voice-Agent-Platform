@@ -233,18 +233,18 @@ async def gemini_sender(
             text_val = item.get("text") or ""
             logger.info(f"Sending text to Gemini: {text_val}")
             # send_realtime_input(text=...) is the correct 1.0+ SDK path for plain
-            # text turns; audio uses media_chunks with an explicit MIME type instead.
+            # text turns; audio uses the audio= parameter with an explicit MIME type.
             await session.send_realtime_input(text=text_val)
         elif isinstance(item, dict) and item.get("type") == "audio":
+            # The `audio` keyword is the correct parameter in google-genai 1.x
+            # (`media_chunks` does not exist in this SDK version).
             await session.send_realtime_input(
-                media_chunks=[
-                    types.Blob(
-                        data=item["data"],
-                        # Include explicit sample rate so Gemini knows the
-                        # incoming PCM format matches the 24 kHz AudioContext.
-                        mime_type="audio/pcm;rate=24000",
-                    )
-                ]
+                audio=types.Blob(
+                    data=item["data"],
+                    # Explicit sample rate so Gemini knows the incoming PCM
+                    # format matches the 24 kHz AudioContext on the client.
+                    mime_type="audio/pcm;rate=24000",
+                )
             )
 
 
