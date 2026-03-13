@@ -41,6 +41,11 @@ let userCfg = {
     system_prompt: ""
 };
 
+// Session generation counter — incremented on every startCall().
+// Any async callback that captures the value at call-start can compare
+// against the current counter to detect stale/superseded sessions.
+let sessionGen = 0;
+
 /** Time when call went live (status "live"). Interrupt is not sent before this + 2s to avoid accidental disconnect. */
 let callLiveAt = 0;
 
@@ -244,6 +249,13 @@ function estimateMicSpeaking() {
 }
 
 async function startCall() {
+    // Prevent double-start while a call is already in progress.
+    if (uiState !== "idle") return;
+
+    // Capture this call's generation.  Any async continuation below checks
+    // this value; if it no longer matches sessionGen the call was superseded.
+    const myGen = ++sessionGen;
+
     try {
         setUiState("connecting");
         addMsg("system", "Requesting microphone access...");
@@ -258,15 +270,29 @@ async function startCall() {
             }
         });
 
+        // Abort if a newer session was started (or stopCall was called) while we awaited.
+        if (myGen !== sessionGen) { mediaStream.getTracks().forEach(t => t.stop()); return; }
+
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
 
         // 2. Load the Audio Worklet Processor with cache busting
         await audioContext.audioWorklet.addModule(`./audio-worklet.js?t=${Date.now()}`);
 
-        // 3. Setup WebSocket connection
-        ws = new WebSocket("ws://127.0.0.1:9050");
+        if (myGen !== sessionGen) {
+            // Stop media tracks too so the mic indicator light turns off.
+            mediaStream.getTracks().forEach(t => t.stop());
+            audioContext.close();
+            return;
+        }
 
-        ws.onopen = () => {
+        // 3. Setup WebSocket connection
+        const wsInstance = new WebSocket("ws://127.0.0.1:9050");
+        // Receive binary audio as ArrayBuffer directly (no extra Blob→ArrayBuffer conversion).
+        wsInstance.binaryType = "arraybuffer";
+        ws = wsInstance;
+
+        wsInstance.onopen = () => {
+            if (myGen !== sessionGen) { wsInstance.close(); return; }
             addMsg("system", "WebSocket connected. Establishing S2S...");
             btnStart.disabled = true;
             btnStop.disabled = false;
@@ -275,7 +301,8 @@ async function startCall() {
         };
 
         // 4. Handle incoming messages
-        ws.onmessage = async (event) => {
+        wsInstance.onmessage = async (event) => {
+            if (myGen !== sessionGen) return; // Stale session — ignore.
             try {
             if (typeof event.data === "string") {
                 // Handle JSON (transcript, system messages)
@@ -295,6 +322,8 @@ async function startCall() {
                 } else if (data.type === "error") {
                     addMsg("system", data.message, { tag: "ERROR" });
                     toast("Error", data.message, "error");
+                    // Transition out of "Connecting…" so the UI is never stuck.
+                    if (uiState === "connecting") setUiState("idle");
                 } else if (data.type === "reset_playback") {
                     if (audioWorkletNode) {
                         audioWorkletNode.port.postMessage({ type: "reset" });
@@ -311,10 +340,9 @@ async function startCall() {
                     setUiState("live");
                 }
             } else {
-                // Handle Binary Data (Audio from Gemini)
-                // The Blob needs to be converted to Float32 Array and sent to the audio worklet
-                const arrayBuffer = await event.data.arrayBuffer();
-                const int16Array = new Int16Array(arrayBuffer);
+                // Handle Binary Data (Audio from Gemini).
+                // binaryType is 'arraybuffer' so event.data is already an ArrayBuffer.
+                const int16Array = new Int16Array(event.data);
                 const float32Array = new Float32Array(int16Array.length);
                 for (let i = 0; i < int16Array.length; i++) {
                     float32Array[i] = int16Array[i] / 32768.0;
@@ -331,8 +359,17 @@ async function startCall() {
             }
         };
 
-        ws.onclose = () => stopCall("Connection closed.");
-        ws.onerror = (e) => addMsg("system", "WebSocket error: " + e.message, { tag: "ERROR" });
+        // onclose fires after onerror too; one stopCall invocation is enough.
+        wsInstance.onclose = () => {
+            if (myGen !== sessionGen) return; // Already cleaned up by a newer session.
+            stopCall("Connection closed.");
+        };
+
+        wsInstance.onerror = () => {
+            // onclose will follow and invoke stopCall; just surface a toast here.
+            if (myGen !== sessionGen) return;
+            addMsg("system", "WebSocket error — connection failed.", { tag: "ERROR" });
+        };
 
         // 5. Setup Audio Graph
         micSource = audioContext.createMediaStreamSource(mediaStream);
@@ -352,7 +389,8 @@ async function startCall() {
 
         // 6. Handle Mic Data from Worklet and send over WebSocket
         audioWorkletNode.port.onmessage = (event) => {
-            // Receive Int16 PCM data from the worklet
+            if (myGen !== sessionGen) return;
+            // Receive Int16 PCM data from the worklet (transferred, zero-copy)
             const pcm16Buffer = event.data;
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(pcm16Buffer.buffer);
@@ -363,6 +401,7 @@ async function startCall() {
         requestAnimationFrame(drawWaveform);
 
     } catch (err) {
+        if (myGen !== sessionGen) return; // Superseded; ignore.
         console.error(err);
         addMsg("system", "Failed to start: " + err.message, { tag: "ERROR" });
         toast("Start failed", err.message, "error");
@@ -371,6 +410,10 @@ async function startCall() {
 }
 
 function stopCall(reason = "Call ended by user.") {
+    // Bump the generation counter so any in-flight startCall() async continuation
+    // detects that this session is over and does not touch the (now reset) state.
+    sessionGen++;
+
     if (ws) { ws.close(); ws = null; }
     if (audioWorkletNode) { audioWorkletNode.disconnect(); audioWorkletNode = null; }
     if (micSource) { micSource.disconnect(); micSource = null; }

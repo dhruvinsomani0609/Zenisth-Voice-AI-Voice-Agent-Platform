@@ -176,14 +176,20 @@ async def websocket_reader(
                 except json.JSONDecodeError:
                     pass
             else:
-                # Binary audio message from client (frontend uses 24kHz)
-                await to_gemini_queue.put(
-                    {
-                        "type": "audio",
-                        "data": message,
-                        "mime_type": "audio/pcm;rate=24000",
-                    }
-                )
+                # Binary audio message from client (frontend uses 24kHz).
+                # Use put_nowait so a backed-up queue drops frames rather than
+                # blocking the reader — this keeps end-to-end latency bounded.
+                try:
+                    to_gemini_queue.put_nowait(
+                        {
+                            "type": "audio",
+                            "data": message,
+                            "mime_type": "audio/pcm;rate=24000",
+                        }
+                    )
+                except asyncio.QueueFull:
+                    # Drop this audio frame; the next one will arrive shortly.
+                    logger.debug("Audio queue full — dropping one frame.")
     except asyncio.CancelledError:
         logger.info("WebSocket reader task cancelled")
     except Exception as e:
@@ -226,21 +232,17 @@ async def gemini_sender(
         if isinstance(item, dict) and item.get("type") == "text":
             text_val = item.get("text") or ""
             logger.info(f"Sending text to Gemini: {text_val}")
-            # Use send_realtime_input for all interaction
-            await session.send_realtime_input(
-                media_chunks=[
-                    types.Blob(
-                        data=text_val,
-                        mime_type="text/plain",
-                    )
-                ]
-            )
+            # send_realtime_input(text=...) is the correct 1.0+ SDK path for plain
+            # text turns; audio uses media_chunks with an explicit MIME type instead.
+            await session.send_realtime_input(text=text_val)
         elif isinstance(item, dict) and item.get("type") == "audio":
             await session.send_realtime_input(
                 media_chunks=[
                     types.Blob(
                         data=item["data"],
-                        mime_type="audio/pcm",
+                        # Include explicit sample rate so Gemini knows the
+                        # incoming PCM format matches the 24 kHz AudioContext.
+                        mime_type="audio/pcm;rate=24000",
                     )
                 ]
             )
