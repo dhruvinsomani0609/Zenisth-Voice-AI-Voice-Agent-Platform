@@ -1,10 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
-import asyncio
 import os
 import re
-import nest_asyncio
-
-nest_asyncio.apply()
 
 # ── In-memory stores (replace with DB in production) ──────────────────────────
 _appointments: list[dict] = []
@@ -46,8 +44,13 @@ def _parse_date(date_str: str) -> str:
 
     # 4. Weekday names (e.g. "next Monday", "this Friday", "Monday")
     _WEEKDAYS = {
-        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-        "friday": 4, "saturday": 5, "sunday": 6,
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
     }
     for day_name, day_idx in _WEEKDAYS.items():
         if day_name in normalised:
@@ -64,10 +67,30 @@ def _parse_date(date_str: str) -> str:
 
     # 5. Month name + day (e.g. "March 7", "7 March", "March 7 2026")
     _MONTHS = {
-        "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
-        "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6,
-        "july": 7, "jul": 7, "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
-        "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
+        "january": 1,
+        "jan": 1,
+        "february": 2,
+        "feb": 2,
+        "march": 3,
+        "mar": 3,
+        "april": 4,
+        "apr": 4,
+        "may": 5,
+        "june": 6,
+        "jun": 6,
+        "july": 7,
+        "jul": 7,
+        "august": 8,
+        "aug": 8,
+        "september": 9,
+        "sep": 9,
+        "sept": 9,
+        "october": 10,
+        "oct": 10,
+        "november": 11,
+        "nov": 11,
+        "december": 12,
+        "dec": 12,
     }
     for month_name, month_num in _MONTHS.items():
         if month_name in normalised:
@@ -104,6 +127,9 @@ def _parse_date(date_str: str) -> str:
 
 def _normalise_timezone(tz_str: str) -> str:
     """Map common spoken timezones to IANA equivalents."""
+    if not tz_str:
+        tz_str = os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata")
+
     _MAP = {
         "IST": "Asia/Kolkata",
         "EST": "America/New_York",
@@ -124,37 +150,27 @@ def _normalise_timezone(tz_str: str) -> str:
 
 # ── Individual handlers ────────────────────────────────────────────────────────
 
-def _book_appointment(p: dict) -> dict:
-    """
-    Creates a real booking via Cal.com.
-    Runs the async call synchronously within Deepgram's sync dispatch.
-    """
-    from app.services.calendar import cal_service
 
-    name = p.get("name", "")
-    email = p.get("email", "")
-    date_raw = p.get("date", "")
-    time_str = p.get("time", "")
-    tz_raw = p.get("timezone", os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata"))
+async def _book_appointment(p: dict) -> dict:
+    """Create a booking via Cal.com (async-safe for Gemini Live)."""
+    from services.calendar import cal_service
+
+    name = (p.get("name") or "").strip()
+    email = (p.get("email") or "").strip()
+    date_raw = (p.get("date") or "").strip()
+    time_str = (p.get("time") or "").strip()
+    tz_raw = p.get("timezone") or os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata")
 
     date = _parse_date(date_raw)
     tz = _normalise_timezone(tz_raw)
 
-    print(
-        f"[functions] book_appointment | name={name!r} email={email!r} "
-        f"date={date!r} time={time_str!r} tz={tz!r}"
-    )
-
     try:
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
-            cal_service.create_booking(
-                name=name,
-                email=email,
-                date=date,
-                time=time_str,
-                timezone=tz,
-            )
+        result = await cal_service.create_booking(
+            name=name,
+            email=email,
+            date=date,
+            time=time_str,
+            timezone=tz,
         )
     except Exception as exc:
         result = {
@@ -172,28 +188,20 @@ def _book_appointment(p: dict) -> dict:
     return result
 
 
-def _check_availability(p: dict) -> dict:
-    """
-    Checks real available slots from Cal.com for a given date.
-    Date parsing via dateparser handles sloppy LLM input ("next Tuesday", "tomorrow").
-    """
-    from app.services.calendar import cal_service
+async def _check_availability(p: dict) -> dict:
+    """Fetch available slots from Cal.com (async-safe for Gemini Live)."""
+    from services.calendar import cal_service
 
-    date_raw = p.get("date", "")
-    tz_raw = p.get("timezone", os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata"))
+    date_raw = (p.get("date") or "").strip()
+    tz_raw = p.get("timezone") or os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata")
 
     date = _parse_date(date_raw)
     tz = _normalise_timezone(tz_raw)
 
-    print(f"[functions] check_availability | date={date!r} tz={tz!r}")
-
     try:
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
-            cal_service.get_available_slots(date=date, timezone=tz)
-        )
+        return await cal_service.get_available_slots(date=date, timezone=tz)
     except Exception as exc:
-        result = {
+        return {
             "success": False,
             "error": str(exc),
             "message": (
@@ -202,17 +210,15 @@ def _check_availability(p: dict) -> dict:
             ),
         }
 
-    return result
 
-
-def _transfer_to_human(p: dict) -> dict:
+async def _transfer_to_human(p: dict) -> dict:
     return {
         "status": "transferring",
         "message": "Connecting to a human specialist now. Estimated wait: 2-3 minutes.",
     }
 
 
-def _mark_dnc(p: dict) -> dict:
+async def _mark_dnc(p: dict) -> dict:
     _dnc_list.append(
         {"reason": p.get("reason"), "timestamp": datetime.now().isoformat()}
     )
@@ -222,16 +228,12 @@ def _mark_dnc(p: dict) -> dict:
     }
 
 
-def _end_call(p: dict) -> dict:
+async def _end_call(p: dict) -> dict:
     return {"status": "ending", "reason": p.get("reason", "completed")}
 
 
-def _search_company_knowledge(p: dict) -> dict:
-    """
-    RAG retrieval tool — searches the ingested document knowledge base.
-    Uses asyncio.run() to execute the async retrieval synchronously so
-    it works within Deepgram's sync FunctionCallRequest dispatch.
-    """
+async def _search_company_knowledge(p: dict) -> dict:
+    """RAG retrieval tool — searches the ingested document knowledge base."""
     query = p.get("query", "")
     document_id = p.get("_document_id") or os.environ.get(
         "RAG_DOCUMENT_ID", "zenisth_prd"
@@ -244,11 +246,9 @@ def _search_company_knowledge(p: dict) -> dict:
         return {"result": "No query provided."}
 
     try:
-        from app.services.retrieval import retrieve_knowledge
+        from services.retrieval import retrieve_knowledge
 
-        # Using loop.run_until_complete with nest_asyncio is safer inside existing loops
-        loop = asyncio.get_event_loop()
-        content = loop.run_until_complete(retrieve_knowledge(query, document_id))
+        content = await retrieve_knowledge(query, document_id)
         return {"result": content}
     except Exception as exc:
         print(f"[functions] RAG Error: {exc}")
@@ -388,13 +388,29 @@ FUNCTION_REGISTRY: dict[str, dict] = {
 
 
 def get_schemas() -> list[dict]:
-    """Return function schemas for Deepgram Settings."""
-    return [entry["schema"] for entry in FUNCTION_REGISTRY.values()]
+    """Return function schemas formatted for Google GenAI/Gemini Tool."""
+    declarations = []
+    for entry in FUNCTION_REGISTRY.values():
+        # Make a deep copy to avoid modifying the original registry continuously
+        import copy
+
+        sch = copy.deepcopy(entry["schema"])
+
+        # Gemini often requires uppercase parameter types (e.g., 'OBJECT', 'STRING')
+        if "parameters" in sch:
+            sch["parameters"]["type"] = sch["parameters"].get("type", "object").upper()
+            if "properties" in sch["parameters"]:
+                for prop_name, prop_val in sch["parameters"]["properties"].items():
+                    prop_val["type"] = prop_val.get("type", "string").upper()
+        declarations.append(sch)
+
+    return [{"function_declarations": declarations}]
 
 
-def dispatch(name: str, params: dict) -> dict:
-    """Execute a function by name. Returns error dict if name is unknown."""
+async def dispatch(name: str, params: dict) -> dict:
+    """Execute a function by name (async). Returns error dict if name is unknown."""
     entry = FUNCTION_REGISTRY.get(name)
     if entry is None:
         return {"error": f"Unknown function: {name}"}
-    return entry["handler"](params)
+    handler = entry["handler"]
+    return await handler(params)

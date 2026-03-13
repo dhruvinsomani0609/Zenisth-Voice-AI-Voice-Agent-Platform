@@ -209,7 +209,8 @@ class CalComService(BaseCalendarService):
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
             try:
-                detail = exc.response.json().get("message", str(exc))
+                err_data = exc.response.json()
+                detail = err_data.get("error", {}).get("message") or err_data.get("message", str(exc))
             except Exception:
                 detail = str(exc)
 
@@ -232,7 +233,16 @@ class CalComService(BaseCalendarService):
                         "Could you spell out your email address for me to make sure I got it right?"
                     ),
                 }
-            return _api_error("create_booking", status, detail)
+            if status == 400 and "past" in str(detail).lower():
+                return {
+                    "success": False,
+                    "error": "Booking in the past",
+                    "message": (
+                        "It looks like you're trying to schedule an appointment for a date in the past. "
+                        "Could you please provide a future date?"
+                    ),
+                }
+            return _api_error("create_booking", status, str(detail))
 
         except Exception as exc:
             return _api_error("create_booking", 500, str(exc))

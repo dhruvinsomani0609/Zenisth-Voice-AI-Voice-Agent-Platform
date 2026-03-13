@@ -15,7 +15,7 @@ def _load_yaml() -> dict:
 class AppConfig:
     def __init__(self):
         self._raw = _load_yaml()
-        self.api_key: str = os.environ.get("DEEPGRAM_API_KEY", "")
+        self.google_api_key: str = os.environ.get("GOOGLE_API_KEY", "")
         self.base_dir: Path = BASE_DIR
 
         # ── Calendar / Scheduling ──────────────────────────────────────────────
@@ -25,28 +25,27 @@ class AppConfig:
         self.default_timezone: str = os.environ.get("DEFAULT_TIMEZONE", "Asia/Kolkata")
 
     @property
-    def deepgram_url(self) -> str:
-        return self._raw["deepgram"]["url"]
+    def server_host(self) -> str:
+        return self._raw.get("server", {}).get("host", "0.0.0.0")
+
+    @property
+    def server_port(self) -> int:
+        return int(self._raw.get("server", {}).get("port", 8000))
+
+    @property
+    def gemini_model(self) -> str:
+        return self._raw.get("gemini", {}).get("model", "gemini-2.0-flash-exp")
+
+    @property
+    def gemini_voice_name(self) -> str:
+        return self._raw.get("gemini", {}).get("voice_name", "Aoede")
+
+    @property
+    def system_instruction(self) -> str:
+        return self._raw.get("gemini", {}).get("system_instruction", "")
 
     @property
     def audio_config(self) -> dict:
-        return self._raw["deepgram"]["audio"]
-
-    @property
-    def http_port(self) -> int:
-        return self._raw["server"]["http_port"]
-
-    @property
-    def ws_port(self) -> int:
-        return self._raw["server"]["ws_port"]
-
-    @property
-    def defaults(self) -> dict:
-        return self._raw["agent"]["defaults"]
-
-    @property
-    def models(self) -> dict:
-        return self._raw["agent"]["models"]
-
+        return self._raw.get("gemini", {}).get("audio", {})
 
 cfg = AppConfig()

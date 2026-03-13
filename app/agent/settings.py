@@ -1,5 +1,19 @@
-from app.config import cfg
-from app.agent.functions import get_schemas
+import os
+from datetime import datetime
+from google import genai
+from google.genai import types
+
+from config import cfg
+from agent.functions import get_schemas
+
+# Voices supported by gemini-2.5-flash-native-audio-preview-12-2025 (Phoebe/Orion are not)
+VALID_NATIVE_AUDIO_VOICES = frozenset({
+    "Zephyr", "Kore", "Orus", "Autonoe", "Umbriel", "Erinome", "Laomedeia", "Schedar",
+    "Achird", "Sadachbia", "Puck", "Fenrir", "Aoede", "Enceladus", "Algieba", "Algenib",
+    "Achernar", "Gacrux", "Zubenelgenubi", "Sadaltager", "Charon", "Leda", "Callirrhoe",
+    "Iapetus", "Despina", "Rasalgethi", "Alnilam", "Pulcherrima", "Vindemiatrix", "Sulafat",
+})
+DEFAULT_VOICE = "Kore"
 
 _PROMPT_TEMPLATE = """\
 You are a helpful AI Voice Assistant. Today is {current_date}.
@@ -43,14 +57,7 @@ VOICE & TONE:
 - Short, clear sentences. Conversational and friendly.
 - Acknowledge the question before answering.
 - Never read out long lists. Summarize key points naturally.
-
-TOOLS AVAILABLE:
-- search_company_knowledge: Search the uploaded knowledge document for relevant information.
-- check_availability: Check available appointment slots for a given date. Always call this first.
-- book_appointment: Schedule an appointment once details are confirmed.
-- transfer_to_human: Connect the user to a human agent if requested.
-- mark_dnc: Mark the user as Do Not Contact if they request it.
-- end_call: End the conversation when complete.
+- Always use the predefined voice persona.
 
 STRICT RULES:
 - Always use search_company_knowledge before answering content-specific questions.
@@ -60,74 +67,30 @@ STRICT RULES:
 """
 
 
-def build_settings(user_cfg: dict) -> dict:
-    d = cfg.defaults
-    voice_model = user_cfg.get("voice_model") or d["voice_model"]
-    stt_model = user_cfg.get("stt_model") or d["stt_model"]
-    llm_model = user_cfg.get("llm_model") or d["llm_model"]
-    temperature = float(
-        user_cfg.get("temperature")
-        if user_cfg.get("temperature") is not None
-        else d["temperature"]
-    )
-    greeting = (user_cfg.get("greeting") or "").strip() or d["greeting"]
-
-    # ── New fields ────────────────────────────────────────────────────────────
-    voice_speed = float(
-        user_cfg.get("voice_speed")
-        if user_cfg.get("voice_speed") is not None
-        else d.get("voice_speed", 1.0)
-    )
-
-    # barge_in can come as bool True/False or string "true"/"false"
-    _barge_raw = user_cfg.get("barge_in")
-    if _barge_raw is None:
-        _barge_raw = d.get("barge_in", True)
-    barge_in = _barge_raw if isinstance(_barge_raw, bool) else str(_barge_raw).lower() != "false"
-
-    endpointing = int(
-        user_cfg.get("endpointing")
-        if user_cfg.get("endpointing") is not None
-        else d.get("endpointing", 800)
-    )
-
-    from datetime import datetime
-
+def build_gemini_config(user_cfg: dict) -> types.LiveConnectConfig:
     custom_prompt = (user_cfg.get("system_prompt") or "").strip()
+    prompt_date_header = (
+        f"System Note: Today is {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
+    )
     prompt = (
-        custom_prompt
+        f"{prompt_date_header}{custom_prompt}"
         if custom_prompt
         else _PROMPT_TEMPLATE.format(
             current_date=datetime.now().strftime("%A, %B %d, %Y"),
         )
     )
 
-    return {
-        "type": "Settings",
-        "audio": cfg.audio_config,
-        "agent": {
-            "listen": {
-                "provider": {
-                    "type": "deepgram",
-                    "model": stt_model,
-                    "endpointing": endpointing,
-                }
-            },
-            "think": {
-                "provider": {
-                    "type": "open_ai",
-                    "model": llm_model,
-                    "temperature": temperature,
-                },
-                "prompt": prompt,
-                "functions": get_schemas(),
-            },
-            "speak": {
-                "provider": {
-                    "type": "deepgram",
-                    "model": voice_model,
-                }
-            },
-            "greeting": greeting,
-        },
-    }
+    raw_voice = (user_cfg.get("voice_name") or cfg.gemini_voice_name or "").strip()
+    voice_name = raw_voice if raw_voice in VALID_NATIVE_AUDIO_VOICES else DEFAULT_VOICE
+    schemas = get_schemas()
+
+    return types.LiveConnectConfig(
+        response_modalities=[types.Modality.AUDIO],
+        system_instruction=types.Content(parts=[types.Part.from_text(text=prompt)]),
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name)
+            )
+        ),
+        tools=schemas,
+    )

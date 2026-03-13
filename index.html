@@ -4,349 +4,118 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zenisth AI Voice Agent — Dashboard</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <title>Zenisth Voice — Command Center</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-
-  <!-- ── HEADER ── -->
   <header>
     <div class="logo">
       <div class="logo-mark">Z</div>
-      <div class="logo-text"><span>Zenisth</span> Voice Agent</div>
+      <div class="logo-text"><span>Zenisth Voice</span> Command Center</div>
     </div>
+
     <div class="hdr-center">
-      <div class="status-pill idle" id="status-pill">● Idle</div>
+      <div id="status-pill" class="status-pill idle" title="Connection status">
+        <span id="status-dot" aria-hidden="true">●</span>
+        <span id="status-text">Idle</span>
+      </div>
     </div>
+
     <div class="hdr-actions">
-      <button class="btn" onclick="openSettingsModal()" id="settings-btn">⚙️ Settings</button>
-      <button class="btn" onclick="openModal()">📊 Analytics</button>
-      <button class="btn" onclick="dlJSON()">⬇ JSON</button>
-      <button class="btn" onclick="dlText()">⬇ Transcript</button>
-      <button class="btn danger" onclick="resetAll()" id="reset-btn" style="display:none">↺ Reset</button>
+      <button class="btn" id="btn-settings">Settings</button>
+      <button class="btn" id="btn-clear">Clear</button>
     </div>
   </header>
 
-  <!-- ── MAIN ── -->
   <main>
-    <!-- LEFT -->
-    <div class="col">
-      <div class="col-hdr">Agent Control</div>
+    <!-- Left: Agent + Controls -->
+    <section class="col">
+      <div class="col-hdr">Agent <span class="badge" id="agent-state">Idle</span></div>
       <div class="col-body">
-
-        <!-- ⚙️ Config Accordion -->
-        <div class="cfg-section">
-          <div class="cfg-hdr" onclick="toggleCfg()">
-            <span>⚙️ Configuration</span>
-            <span class="cfg-arrow" id="cfg-arrow">▼</span>
-          </div>
-          <div class="cfg-body" id="cfg-body">
-
-            <div class="cfg-field">
-              <label>Voice Model (TTS)</label>
-              <select id="cfg-voice">
-                <option disabled>Loading…</option>
-              </select>
-            </div>
-
-            <div class="cfg-field">
-              <label>STT Model (Transcriber)</label>
-              <select id="cfg-stt">
-                <option disabled>Loading…</option>
-              </select>
-            </div>
-
-            <div class="cfg-divider"></div>
-
-            <div class="cfg-field">
-              <label>LLM Model</label>
-              <select id="cfg-llm">
-                <option disabled>Loading…</option>
-              </select>
-            </div>
-
-            <div class="cfg-field">
-              <label>Temperature <span id="cfg-temp-val">0.7</span></label>
-              <input type="range" id="cfg-temp" min="0" max="1.5" step="0.05" value="0.7"
-                oninput="document.getElementById('cfg-temp-val').textContent=parseFloat(this.value).toFixed(2)">
-            </div>
-
-            <div class="cfg-divider"></div>
-
-            <div class="cfg-field">
-              <label>System Prompt <span
-                  style="color:var(--t3);font-size:.62rem;letter-spacing:0;text-transform:none">optional — overrides
-                  default</span></label>
-              <textarea id="cfg-prompt" placeholder="Leave blank to use default Zenisth prompt…"></textarea>
-            </div>
-
-            <div class="cfg-field">
-              <label>Greeting Message</label>
-              <input type="text" id="cfg-greeting" value="">
-            </div>
-
-          </div>
-        </div>
-        <!-- end cfg -->
-
         <div class="agent-card">
           <div class="avatar-wrap">
-            <div class="avatar">Z</div>
             <div class="avatar-ring" id="avatar-ring"></div>
+            <div class="avatar">Z</div>
           </div>
-          <div class="agent-name">AI Voice Agent</div>
-          <div class="agent-role">Sales &amp; Demo Specialist</div>
-          <div class="agent-company">Zenisth Solutions Pvt. Ltd.</div>
-          <div class="agent-state" id="agent-state">Status: <em>Idle</em></div>
+          <div class="agent-name">Zenisth</div>
+          <div class="agent-role">Gemini Multimodal Engine</div>
+          <div class="agent-company">Speech-to-Speech</div>
+          <div class="agent-state">Mode: <em id="mode-text">Idle</em></div>
         </div>
 
         <div id="canvas-wrap">
-          <canvas id="waveform"></canvas>
+          <canvas id="waveform" width="520" height="90"></canvas>
         </div>
 
-        <button class="call-btn start" id="call-btn" onclick="toggleCall()">
-          <span id="btn-icon">📞</span>
-          <span id="btn-label">Start Call</span>
-        </button>
-
-        <div class="stats-grid">
-          <div class="stat teal">
-            <div class="stat-val" id="s-turns">0</div>
-            <div class="stat-lbl">Turns</div>
-          </div>
-          <div class="stat violet">
-            <div class="stat-val" id="s-fns">0</div>
-            <div class="stat-lbl">Fn Calls</div>
-          </div>
-          <div class="stat green">
-            <div class="stat-val" id="s-dur">0:00</div>
-            <div class="stat-lbl">Duration</div>
-          </div>
-          <div class="stat yellow">
-            <div class="stat-val" id="s-lat">—</div>
-            <div class="stat-lbl">Avg Lat</div>
-          </div>
-        </div>
+        <button class="call-btn start" id="btn-start">Start Call</button>
+        <button class="call-btn end" id="btn-stop" disabled>Stop Call</button>
       </div>
-    </div>
+    </section>
 
-    <!-- CENTER: Transcript -->
-    <div class="col" style="border-right:none">
-      <div class="col-hdr">
-        Live Transcript
-        <div style="display:flex;gap:8px">
-          <span style="font-size:.68rem;color:var(--user)">● You</span>
-          <span style="font-size:.68rem;color:var(--agent)">● Agent</span>
-          <span style="font-size:.68rem;color:var(--violet)">● System</span>
-        </div>
-      </div>
+    <!-- Center: Transcript -->
+    <section class="col">
+      <div class="col-hdr">Live Transcript <span class="badge" id="turn-badge">—</span></div>
       <div class="transcript" id="transcript">
-        <div class="empty">
+        <div class="empty" id="empty-state">
           <div class="icon">🎙️</div>
-          <p>Press <strong>Start Call</strong> to begin.<br>Live transcript will appear here.</p>
+          <p>Press <strong>Start Call</strong> to go live. Speak naturally. If you interrupt while the agent is talking, playback will stop immediately.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- RIGHT: Function calls -->
-    <div class="col">
-      <div class="col-hdr">Actions & Calls <span class="badge" id="fn-count">0</span></div>
-      <div class="col-body" id="fn-log">
-        <div style="color:var(--t3);font-size:.78rem;text-align:center;padding:24px">No actions yet</div>
-      </div>
-    </div>
+    <!-- Right: Tool Log -->
+    <section class="col">
+      <div class="col-hdr">Actions <span class="badge" id="fn-count">0</span></div>
+      <div class="col-body" id="fn-log"></div>
+    </section>
   </main>
 
-  <!-- ── FOOTER ── -->
-  <footer>
-    <span id="timer">00:00</span>
-    <span class="dot">•</span>
-    <span id="footer-msg">Ready — press Start Call</span>
-    <span class="dot">•</span>
-    <span>ws://localhost:8765</span>
-  </footer>
-
-  <!-- ── TOASTS ── -->
   <div id="toast-wrap"></div>
 
-  <!-- ── ANALYTICS MODAL ── -->
-  <div id="modal">
-    <div class="modal-box">
-      <div class="modal-top">
-        <h2>📊 Session Analytics — Zenisth Voice Agent</h2>
-        <button class="modal-close" onclick="closeModal()">✕</button>
-      </div>
-      <div class="modal-body" id="modal-body">
-        <p style="color:var(--t2);font-size:.85rem">Start a call to see analytics.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SETTINGS MODAL ── -->
-  <div id="settings-modal">
-    <div class="sm-box">
+  <!-- Settings Modal (Gemini-only) -->
+  <div id="settings-modal" aria-hidden="true">
+    <div class="sm-box" role="dialog" aria-modal="true" aria-label="Settings">
       <div class="sm-top">
-        <h2>⚙️ Agent Settings</h2>
-        <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+        <h2>Settings</h2>
+        <button class="modal-close" id="btn-settings-close">✕</button>
       </div>
       <div class="sm-tabs">
-        <div class="sm-tab active" onclick="switchTab('voice')" id="tab-voice">🎙️ Voice &amp; Speech</div>
-        <div class="sm-tab" onclick="switchTab('conversation')" id="tab-conversation">💬 Conversation</div>
-        <div class="sm-tab" onclick="switchTab('intelligence')" id="tab-intelligence">🤖 Intelligence</div>
-        <div class="sm-tab" onclick="switchTab('knowledge')" id="tab-knowledge">📚 Knowledge Base</div>
+        <div class="sm-tab active" data-pane="engine">Engine</div>
+        <div class="sm-tab" data-pane="prompt">Prompt</div>
       </div>
-
-      <!-- Tab 1: Voice & Speech -->
-      <div class="sm-pane active" id="pane-voice">
-        <div class="sf-two">
-          <div class="sf-row">
-            <label>Voice Model (TTS)</label>
-            <select id="sm-voice">
-              <option disabled>Loading…</option>
-            </select>
-          </div>
-          <div class="sf-row">
-            <label>STT Model (Transcriber)</label>
-            <select id="sm-stt">
-              <option disabled>Loading…</option>
-            </select>
-          </div>
-        </div>
-
+      <div class="sm-pane active" id="pane-engine">
         <div class="sf-row">
-          <label>Voice Speed <span class="sf-hint">0.8× (slow) → 1.5× (fast)</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">0.8×</span>
-            <input type="range" id="sm-voice-speed" min="0.8" max="1.5" step="0.05" value="1.0"
-              oninput="document.getElementById('sm-voice-speed-val').textContent=parseFloat(this.value).toFixed(2)+'×'">
-            <span class="sf-range-edge">1.5×</span>
-            <span class="sf-range-val" id="sm-voice-speed-val">1.00×</span>
-          </div>
+          <label>Gemini Multimodal Engine</label>
+          <input type="text" id="gemini-model" value="Live (S2S)" disabled />
         </div>
-
         <div class="sf-row">
-          <label>Emotion &amp; Style <span class="sf-hint">Shapes agent's tone in the system prompt</span></label>
-          <select id="sm-voice-emotion">
-            <option value="helpful">😊 Helpful — Warm &amp; Friendly</option>
-            <option value="professional">💼 Professional — Formal &amp; Precise</option>
-            <option value="empathetic">🤝 Empathetic — Caring &amp; Patient</option>
+          <label>Gemini Voice</label>
+          <select id="voice-name">
+            <option value="Kore" selected>Kore</option>
+            <option value="Aoede">Aoede</option>
+            <option value="Puck">Puck</option>
+            <option value="Charon">Charon</option>
+            <option value="Zephyr">Zephyr</option>
+            <option value="Fenrir">Fenrir</option>
+            <option value="Leda">Leda</option>
           </select>
         </div>
       </div>
-
-      <!-- Tab 2: Conversation -->
-      <div class="sm-pane" id="pane-conversation">
-        <div class="sf-row sf-toggle-row">
-          <div class="sf-toggle-label">
-            <label>Barge-in (Interruption)</label>
-            <span class="sf-hint">Allow user to interrupt the agent mid-sentence</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="sm-barge-in" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
+      <div class="sm-pane" id="pane-prompt">
         <div class="sf-row">
-          <label>Endpointing — Patience <span class="sf-hint">How long the STT waits in silence before deciding you've
-              finished speaking</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">500ms</span>
-            <input type="range" id="sm-endpointing" min="500" max="2000" step="50" value="800"
-              oninput="document.getElementById('sm-endpointing-val').textContent=this.value+'ms'">
-            <span class="sf-range-edge">2000ms</span>
-            <span class="sf-range-val" id="sm-endpointing-val">800ms</span>
-          </div>
-          <div class="sf-endpoint-tips">
-            <span class="ep-tip slow">🐢 High = patient (better for elderly)</span>
-            <span class="ep-tip fast">⚡ Low = fast-paced (debate style)</span>
-          </div>
-        </div>
-
-        <div class="sf-row sf-toggle-row">
-          <div class="sf-toggle-label">
-            <label>Filler Audio</label>
-            <span class="sf-hint">Agent says "Let me check…" during slow tool calls to prevent silence</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="sm-filler-audio">
-            <span class="slider"></span>
-          </label>
+          <label>System Prompt Override</label>
+          <textarea id="system-prompt" placeholder="Optional. Leave empty to use the default agent prompt."></textarea>
         </div>
       </div>
-
-      <!-- Tab 3: Intelligence -->
-      <div class="sm-pane" id="pane-intelligence">
-        <div class="sf-row">
-          <label>LLM Model</label>
-          <select id="sm-llm">
-            <option disabled>Loading…</option>
-          </select>
-        </div>
-        <div class="sf-row">
-          <label>Temperature <span class="sf-hint">0 = strict &amp; deterministic · 1.5 = creative &amp;
-              varied</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">0.0</span>
-            <input type="range" id="sm-temp" min="0" max="1.5" step="0.05" value="0.7"
-              oninput="document.getElementById('sm-temp-val').textContent=parseFloat(this.value).toFixed(2)">
-            <span class="sf-range-edge">1.5</span>
-            <span class="sf-range-val" id="sm-temp-val">0.70</span>
-          </div>
-        </div>
-        <div class="sf-row">
-          <label>First Message (Greeting)</label>
-          <input type="text" id="sm-greeting" placeholder="Agent's first words…">
-        </div>
-        <div class="sf-row">
-          <label>System Prompt <span style="color:var(--t3);text-transform:none;letter-spacing:0;font-weight:400">—
-              overrides the default Zenisth prompt for this run</span></label>
-          <textarea id="sm-prompt"
-            placeholder="Enter custom system prompt — leave blank to use the default Zenisth sales agent prompt…"></textarea>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
-          <button class="btn" onclick="resetPrompt()" style="font-size:.75rem">↺ Reset to Default</button>
-          <span id="sm-char-count" style="font-size:.68rem;color:var(--t3);margin-left:2px"></span>
-        </div>
-      </div>
-
-      <!-- Tab 4: Knowledge Base -->
-      <div class="sm-pane" id="pane-knowledge">
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="upload-file" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)">
-          <div class="upload-icon">📄</div>
-          <div class="upload-hint">Drag &amp; drop a PDF or <strong>click to browse</strong></div>
-          <div class="upload-hint" style="margin-top:4px;font-size:.72rem">Supported: PDF, DOCX, TXT (max 50MB)</div>
-        </div>
-        <div class="upload-progress" id="upload-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" id="upload-fill"></div>
-          </div>
-          <div class="progress-label" id="upload-label">Uploading…</div>
-        </div>
-        <div class="doc-list">
-          <div class="doc-list-hdr">
-            <span>📚 Document Library</span>
-            <span class="doc-hint">Click <strong>Mark as Active</strong> to ingest &amp; use</span>
-          </div>
-          <div id="doc-list-body">
-            <div class="doc-empty">Loading&hellip;</div>
-          </div>
-        </div>
-      </div>
-
       <div class="sm-footer">
-        <span class="save-status" id="save-status"></span>
-        <button class="btn" onclick="closeSettingsModal()">Cancel</button>
-        <button class="btn primary" onclick="saveSettings()">💾 Save Settings</button>
+        <button class="btn" id="btn-settings-cancel">Cancel</button>
+        <button class="btn primary" id="btn-settings-apply">Apply</button>
       </div>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script src="script.js?v=2"></script>
 </body>
 
 </html>
