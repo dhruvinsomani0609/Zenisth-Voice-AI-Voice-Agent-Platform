@@ -77,7 +77,7 @@ async def gemini_to_client(session, websocket):
                                 # It's an audio chunk over binary
                                 await websocket.send(part.inline_data.data)
 
-                            # Forward transcript text to the client.
+                            # Forward any inline text parts to the client.
                             # Skip thinking/reasoning tokens (part.thought=True) —
                             # these are Gemini's internal chain-of-thought and must
                             # never be shown to the end-user.
@@ -89,6 +89,24 @@ async def gemini_to_client(session, websocket):
                                 await websocket.send(
                                     json.dumps({"type": "transcript", "text": part.text})
                                 )
+
+                    # Forward output transcription (agent speech → text).
+                    # This is the reliable transcript source when response_modalities
+                    # is AUDIO-only; output_audio_transcription must be enabled in the
+                    # LiveConnectConfig (settings.py) for this field to be populated.
+                    ot = server_content.output_transcription
+                    if ot and ot.text:
+                        await websocket.send(
+                            json.dumps({"type": "transcript", "text": ot.text})
+                        )
+
+                    # Forward input transcription (user speech → text) so the
+                    # transcript panel shows both sides of the conversation.
+                    it = server_content.input_transcription
+                    if it and it.text:
+                        await websocket.send(
+                            json.dumps({"type": "user_transcript", "text": it.text})
+                        )
 
                 # Check for tool calls
                 tool_calls = response.tool_call
@@ -149,8 +167,15 @@ async def gemini_to_client(session, websocket):
         logger.info("Gemini to Client task ended")
 
 
-# Drop interrupt/config for this many seconds after client connect (avoids tear-down from stale/race messages).
+
+# Drop interrupt messages for this many seconds after client connect (avoids
+# barge-in from stale messages sent just before the previous call ended).
 _CONNECTION_GRACE_SECONDS = 5.0
+
+# How long to wait (seconds) after the WS reader starts before draining any
+# pre-session config from the queue.  This gives the WebSocket reader time to
+# receive the initial config message sent by the client on connect.
+_PRE_SESSION_CONFIG_WAIT = 0.15
 
 
 async def websocket_reader(
@@ -177,12 +202,10 @@ async def websocket_reader(
                         logger.info("Client requested interrupt. (Barge-in detected)")
                         await to_gemini_queue.put(_INTERRUPT)
                     elif msg_type == "config":
-                        if elapsed < _CONNECTION_GRACE_SECONDS:
-                            logger.info(
-                                "Dropping config (within %s s of connect).",
-                                _CONNECTION_GRACE_SECONDS,
-                            )
-                            continue
+                        # Config is never dropped — the initial voice/prompt preference
+                        # sent by the client on WS open is drained by handle_client
+                        # before the Gemini session starts; subsequent config messages
+                        # trigger a session restart via _ConfigUpdate.
                         cfg_obj = data.get("config") or {}
                         await to_gemini_queue.put({"type": "config", "config": cfg_obj})
                     elif data.get("type") == "text":
@@ -217,16 +240,13 @@ async def websocket_reader(
         logger.error(f"Error reading from client: {e}")
 
 
-# Seconds after session start during which config messages are absorbed (no reconnect)
-_CONFIG_GRACE_SECONDS = 10.0
-
 
 async def gemini_sender(
-    session, to_gemini_queue: asyncio.Queue, user_cfg: dict, session_start: list
+    session, to_gemini_queue: asyncio.Queue, user_cfg: dict
 ):
     """Consume queued events and send them to Gemini.
-    session_start: single-element list with monotonic time when session started.
-    Config messages within CONFIG_GRACE_SECONDS are absorbed; after that they trigger reconnect.
+    Config messages always trigger a _ConfigUpdate to restart the session
+    with the new voice/prompt settings.
     """
     while True:
         item = await to_gemini_queue.get()
@@ -238,16 +258,7 @@ async def gemini_sender(
 
         if isinstance(item, dict) and item.get("type") == "config":
             cfg_obj = item.get("config") or {}
-            elapsed = time.monotonic() - session_start[0]
-            if elapsed < _CONFIG_GRACE_SECONDS:
-                # Within grace window — apply in memory only, never reconnect
-                user_cfg.clear()
-                user_cfg.update(cfg_obj)
-                logger.info(
-                    "Config applied in memory (within grace window, no reconnect)."
-                )
-                continue
-            logger.info("Config update after grace window; triggering reconnect.")
+            logger.info("Config update received; triggering session restart.")
             raise _ConfigUpdate(cfg_obj)
 
         if isinstance(item, dict) and item.get("type") == "text":
@@ -274,7 +285,6 @@ async def handle_client(websocket):
     logger.info(f"Client connected: {websocket.remote_address}")
 
     user_cfg: dict = {}
-    live_config = build_gemini_config(user_cfg=user_cfg)
 
     try:
         await _send_json(websocket, {"type": "status", "state": "connecting"})
@@ -288,6 +298,37 @@ async def handle_client(websocket):
         )
 
         while not reader_task.done():
+            # Give the WebSocket reader a moment to receive any initial config
+            # message (e.g., voice preference) sent by the client on connect.
+            await asyncio.sleep(_PRE_SESSION_CONFIG_WAIT)
+            if reader_task.done():
+                break
+
+            # Drain pre-session config messages so the correct voice/prompt is
+            # applied to this Gemini session from the very first connection.
+            # Non-config items (audio, text) are preserved in the queue.
+            _pending: list = []
+            while True:
+                try:
+                    item = to_gemini_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                if isinstance(item, dict) and item.get("type") == "config":
+                    user_cfg.clear()
+                    user_cfg.update(item.get("config") or {})
+                    logger.info(
+                        "Pre-session config applied: voice=%s",
+                        user_cfg.get("voice_name"),
+                    )
+                else:
+                    _pending.append(item)
+            for _item in _pending:
+                to_gemini_queue.put_nowait(_item)
+
+            # Build (or re-build on restart) the Gemini session config with the
+            # latest user preferences.
+            live_config = build_gemini_config(user_cfg=user_cfg)
+
             # Establish bi-directional stream with Gemini Multimodal Live API
             async with client.aio.live.connect(
                 model=MODEL, config=live_config
@@ -305,9 +346,8 @@ async def handle_client(websocket):
                     text="[Call connected. Please deliver your opening greeting now.]"
                 )
 
-                session_start = [time.monotonic()]
                 sender_task = asyncio.create_task(
-                    gemini_sender(session, to_gemini_queue, user_cfg, session_start)
+                    gemini_sender(session, to_gemini_queue, user_cfg)
                 )
                 receiver_task = asyncio.create_task(
                     gemini_to_client(session, websocket)

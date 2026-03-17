@@ -19,6 +19,19 @@ class GeminiAudioProcessor extends AudioWorkletProcessor {
         this.recordBuffer = new Float32Array(2048);
         this.recordIndex  = 0;
 
+        // ── Noise gate (Voice Activity Detection) ───────────────────────────
+        // Suppress background noise by only forwarding audio when the RMS
+        // energy of a chunk exceeds NOISE_GATE_RMS.  A hold counter keeps the
+        // gate open for SPEECH_HOLD_FRAMES frames after the last loud frame so
+        // the tail of words and sentences is not clipped.
+        //   • NOISE_GATE_RMS  ≈ 0.008 → ~-42 dB full-scale (conservative).
+        //     Raise this value if ambient noise still leaks through; lower it
+        //     if soft speech is being cut off.
+        //   • SPEECH_HOLD_FRAMES × (2048 / 24000) s ≈ 20 × 85 ms ≈ 1.7 s.
+        this._noiseGateRms   = 0.008;
+        this._speechHold     = 0;
+        this._speechHoldMax  = 20;  // frames to keep gate open after last loud frame
+
         this.port.onmessage = (event) => {
             const msg = event.data;
 
@@ -27,6 +40,13 @@ class GeminiAudioProcessor extends AudioWorkletProcessor {
                 this._pbR = 0;
                 this._pbW = 0;
                 this._pbN = 0;
+                return;
+            }
+
+            // noise_gate command: adjust the RMS threshold at runtime.
+            if (msg && typeof msg === "object" && msg.type === "noise_gate") {
+                if (typeof msg.rms === "number") this._noiseGateRms = msg.rms;
+                if (typeof msg.hold === "number") this._speechHoldMax = msg.hold;
                 return;
             }
 
@@ -73,11 +93,30 @@ class GeminiAudioProcessor extends AudioWorkletProcessor {
                 this.recordBuffer[this.recordIndex++] = inputChannel[i];
 
                 if (this.recordIndex >= this.recordBuffer.length) {
-                    const pcm16 = new Int16Array(this.recordBuffer.length);
+                    // ── Noise gate ──────────────────────────────────────────
+                    // Compute RMS energy of this chunk.
+                    let sumSq = 0;
                     for (let j = 0; j < this.recordBuffer.length; j++) {
-                        const s = Math.max(-1, Math.min(1, this.recordBuffer[j]));
-                        pcm16[j] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        sumSq += this.recordBuffer[j] * this.recordBuffer[j];
                     }
+                    const rms = Math.sqrt(sumSq / this.recordBuffer.length);
+
+                    if (rms >= this._noiseGateRms) {
+                        // Voice detected — reset the hold counter.
+                        this._speechHold = this._speechHoldMax;
+                    }
+
+                    const pcm16 = new Int16Array(this.recordBuffer.length);
+                    if (this._speechHold > 0) {
+                        // Gate is open: encode the real mic samples.
+                        for (let j = 0; j < this.recordBuffer.length; j++) {
+                            const s = Math.max(-1, Math.min(1, this.recordBuffer[j]));
+                            pcm16[j] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        this._speechHold--;
+                    }
+                    // Gate is closed: pcm16 remains all zeros (silence sent to Gemini).
+
                     // Transfer buffer ownership to avoid a copy on the message channel.
                     this.port.postMessage(pcm16, [pcm16.buffer]);
                     this.recordIndex = 0;

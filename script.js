@@ -301,8 +301,11 @@ async function startCall() {
             addMsg("system", "WebSocket connected. Establishing S2S...");
             btnStart.disabled = true;
             btnStop.disabled = false;
-            // Do not send config on open — it triggers an immediate reconnect and unstable session.
-            // Backend uses config.yaml defaults; user can Apply in Settings to hot-reload voice/prompt.
+            // Send the current user config (voice, system prompt) immediately so
+            // the server can apply it before opening the Gemini session.  This is
+            // how the voice selected in Settings before the call takes effect on
+            // the very first session instead of requiring a manual Apply mid-call.
+            wsInstance.send(JSON.stringify({ type: "config", config: userCfg }));
         };
 
         // 4. Handle incoming messages
@@ -313,8 +316,12 @@ async function startCall() {
                 // Handle JSON (transcript, system messages)
                 const data = JSON.parse(event.data);
                 if (data.type === "transcript") {
-                    // Gemini emits incremental fragments; we treat it like typing.
+                    // Agent speech transcription — append to agent message bubble.
                     updateAgentTyping(data.text);
+                } else if (data.type === "user_transcript") {
+                    // User speech transcription — show in transcript panel.
+                    if (currentAgentMsgEl) finalizeAgentMsg();
+                    addMsg("user", data.text);
                 } else if (data.type === "system") {
                     addMsg("system", data.message);
                 } else if (data.type === "status") {

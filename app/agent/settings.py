@@ -17,7 +17,7 @@ DEFAULT_VOICE = "Kore"
 
 # Fallback prompt used when system_prompt.txt is absent
 _FALLBACK_PROMPT = """\
-You are a helpful AI Voice Assistant. Today is {current_date}.
+You are a helpful AI Voice Assistant.
 You are NOT human. You help users by answering questions and scheduling appointments.
 
 SCHEDULING PROTOCOL:
@@ -70,7 +70,12 @@ def _load_default_prompt() -> str:
 
 def build_gemini_config(user_cfg: dict) -> types.LiveConnectConfig:
     custom_prompt = (user_cfg.get("system_prompt") or "").strip()
-    date_header = f"System Note: Today is {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
+    # The date + pace instruction is prepended to every prompt so the agent
+    # always knows the current date and speaks at a comfortable listening pace.
+    date_header = (
+        f"System Note: Today is {datetime.now().strftime('%A, %B %d, %Y')}. "
+        f"Speak at a measured, unhurried pace so the listener can follow easily.\n\n"
+    )
     prompt = (
         f"{date_header}{custom_prompt}"
         if custom_prompt
@@ -91,5 +96,9 @@ def build_gemini_config(user_cfg: dict) -> types.LiveConnectConfig:
         ),
         # Disable thinking tokens so internal reasoning never reaches the client
         thinking_config=types.ThinkingConfig(include_thoughts=False),
+        # Enable transcription so both user speech and agent speech appear in
+        # the transcript panel even though audio is the only response modality.
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
         tools=schemas,
     )
