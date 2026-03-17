@@ -286,7 +286,12 @@ async function startCall() {
         }
 
         // 3. Setup WebSocket connection
-        const wsInstance = new WebSocket("ws://127.0.0.1:9050");
+        // Derive the WebSocket URL from the page's own origin so the same code
+        // works for local development (ws://127.0.0.1:9050) AND for cloud
+        // environments like GitHub Codespaces where the page is served over
+        // HTTPS with a forwarded hostname (wss://xyz-9050.app.github.dev).
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsInstance = new WebSocket(`${wsProtocol}//${window.location.host}`);
         // Receive binary audio as ArrayBuffer directly (no extra Blob→ArrayBuffer conversion).
         wsInstance.binaryType = "arraybuffer";
         ws = wsInstance;

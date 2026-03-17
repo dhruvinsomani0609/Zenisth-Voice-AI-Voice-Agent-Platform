@@ -1,8 +1,11 @@
 import asyncio
+import http
 import json
 import logging
+import mimetypes
 import time
 import traceback
+from pathlib import Path
 from websockets.server import serve
 
 from google import genai
@@ -362,9 +365,61 @@ async def handle_client(websocket):
         logger.info(f"Client disconnected: {websocket.remote_address}")
 
 
+# ── Static-file serving ────────────────────────────────────────────────────────
+# Serve the browser frontend (index.html, script.js, …) from the SAME server
+# and port as the WebSocket endpoint.  This means the app works with a single
+# forwarded port — critical for GitHub Codespaces and other reverse-proxy
+# environments where different ports have completely different hostnames.
+
+_STATIC_DIR: Path = cfg.base_dir  # project root — where index.html lives
+
+
+async def _process_http_request(path: str, request_headers):
+    """Serve static files for plain HTTP requests.
+
+    Returns None to let websockets proceed with the WebSocket upgrade handshake.
+    Returns an HTTP 3-tuple (status, headers, body) for regular GET requests so
+    the frontend files are served from the same port as the WebSocket endpoint.
+    """
+    # WebSocket upgrade — let the library handle it normally.
+    if request_headers.get("Upgrade", "").lower() == "websocket":
+        return None
+
+    # Strip query string and fragment; default to index.html.
+    clean = path.split("?")[0].split("#")[0]
+    if clean in ("", "/"):
+        clean = "/index.html"
+
+    candidate = (_STATIC_DIR / clean.lstrip("/")).resolve()
+
+    # Security: reject traversal attempts outside the static root.
+    try:
+        candidate.relative_to(_STATIC_DIR.resolve())
+    except ValueError:
+        return http.HTTPStatus.FORBIDDEN, [], b"Forbidden"
+
+    try:
+        data = candidate.read_bytes()
+    except (FileNotFoundError, IsADirectoryError):
+        return http.HTTPStatus.NOT_FOUND, [], b"Not Found"
+
+    mime, _ = mimetypes.guess_type(str(candidate))
+    return (
+        http.HTTPStatus.OK,
+        [
+            ("Content-Type", mime or "application/octet-stream"),
+            ("Content-Length", str(len(data))),
+        ],
+        data,
+    )
+
+
 async def main():
     logger.info(f"Starting S2S Server on {HOST}:{PORT}")
-    async with serve(handle_client, HOST, PORT):
+    async with serve(
+        handle_client, HOST, PORT, process_request=_process_http_request
+    ):
+        logger.info(f"Open browser at: http://127.0.0.1:{PORT}")
         await asyncio.Future()  # Run forever
 
 

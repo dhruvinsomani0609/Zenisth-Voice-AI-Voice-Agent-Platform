@@ -21,7 +21,7 @@ Zenisth-Voice-AI-Voice-Agent-Platform/
 ├── app/
 │   ├── server.py          # WebSocket server — bridges browser <-> Gemini Live
 │   ├── config.py          # Loads config.yaml + .env
-│   ├── bot.py             # HTTP file server (serves index.html on :8080)
+│   ├── bot.py             # Legacy Pipecat/WebRTC pipeline (not used by run.py)
 │   ├── agent/             # Gemini config & tool-dispatch logic
 │   └── services/          # External integrations (e.g. Cal.com)
 ├── index.html             # Frontend UI
@@ -116,8 +116,8 @@ Open `config.yaml` to change the Gemini model, voice, or WebSocket port:
 
 ```yaml
 server:
-  host: "127.0.0.1"
-  port: 9050          # WebSocket server port
+  host: "0.0.0.0"
+  port: 9050          # Combined WebSocket + HTTP server port
 
 gemini:
   model: "gemini-2.5-flash-native-audio-preview-12-2025"
@@ -136,8 +136,8 @@ A **Run Server** launch configuration is included. Press **F5** (or go to **Run 
 The debug console will show:
 
 ```
-INFO:server:Starting S2S Server on 127.0.0.1:9050
-INFO:server:HTTP server listening on http://127.0.0.1:8080
+INFO:server:Starting S2S Server on 0.0.0.0:9050
+INFO:server:Open browser at: http://127.0.0.1:9050
 ```
 
 #### Option B — Terminal
@@ -150,7 +150,9 @@ python run.py
 
 ### Step 7 — Open the UI
 
-Navigate to **http://127.0.0.1:8080** in your browser and click **Start Call**.
+Navigate to **http://127.0.0.1:9050** in your browser and click **Start Call**.
+
+> **GitHub Codespaces:** Open the **Ports** panel, forward port `9050`, and open the generated `https://…-9050.…app.github.dev` URL. The WebSocket automatically upgrades to `wss://` — no extra configuration needed.
 
 ---
 
@@ -173,7 +175,7 @@ python run.py
 | `TypeError: send_realtime_input() got an unexpected keyword argument 'media_chunks'` | Pull latest — this is fixed in the current codebase. |
 | `GOOGLE_API_KEY not set` | Add `GOOGLE_API_KEY=...` to your `.env` file. |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` inside your virtual env. |
-| Port `9050` or `8080` already in use | Change `server.port` in `config.yaml`, or stop the existing process. |
+| Port `9050` already in use | Change `server.port` in `config.yaml`, or stop the existing process. |
 | Browser microphone blocked | Make sure the browser has microphone permission for `localhost`. |
 
 ---
