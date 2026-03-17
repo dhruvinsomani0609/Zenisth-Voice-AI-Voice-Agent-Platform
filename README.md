@@ -1,270 +1,185 @@
-<div align="center">
-  
-<a href="https://vectify.ai/pageindex" target="_blank">
-  <img src="https://github.com/user-attachments/assets/46201e72-675b-43bc-bfbd-081cc6b65a1d" alt="PageIndex Banner" />
-</a>
+# Zenisth Voice — AI Voice Agent Platform
 
-<br/>
-<br/>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/14736" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14736" alt="VectifyAI%2FPageIndex | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
-
-# PageIndex: Vectorless, Reasoning-based RAG
-
-<p align="center"><b>Reasoning-based RAG&nbsp; ◦ &nbsp;No Vector DB&nbsp; ◦ &nbsp;No Chunking&nbsp; ◦ &nbsp;Human-like Retrieval</b></p>
-
-<h4 align="center">
-  <a href="https://vectify.ai">🏠 Homepage</a>&nbsp; • &nbsp;
-  <a href="https://chat.pageindex.ai">🖥️ Chat Platform</a>&nbsp; • &nbsp;
-  <a href="https://pageindex.ai/mcp">🔌 MCP</a>&nbsp; • &nbsp;
-  <a href="https://docs.pageindex.ai">📚 Docs</a>&nbsp; • &nbsp;
-  <a href="https://discord.com/invite/VuXuf29EUj">💬 Discord</a>&nbsp; • &nbsp;
-  <a href="https://ii2abc2jejf.typeform.com/to/tK3AXl8T">✉️ Contact</a>&nbsp;
-</h4>
-  
-</div>
-
-
-<details open>
-<summary><h3>📢 Latest Updates</h3></summary>
-
- **🔥 Releases:**
-- [**PageIndex Chat**](https://chat.pageindex.ai): The first human-like document-analysis agent [platform](https://chat.pageindex.ai) built for professional long documents. Can also be integrated via [MCP](https://pageindex.ai/mcp) or [API](https://docs.pageindex.ai/quickstart) (beta).
-<!-- - [**PageIndex Chat API**](https://docs.pageindex.ai/quickstart): An API that brings PageIndex's advanced long-document intelligence directly into your applications and workflows. -->
-<!-- - [PageIndex MCP](https://pageindex.ai/mcp): Bring PageIndex into Claude, Cursor, or any MCP-enabled agent. Chat with long PDFs in a reasoning-based, human-like way. -->
- 
- **📝 Articles:**
-- [**PageIndex Framework**](https://pageindex.ai/blog/pageindex-intro): Introduces the PageIndex framework — an *agentic, in-context* *tree index* that enables LLMs to perform *reasoning-based*, *human-like retrieval* over long documents, without vector DB or chunking.
-<!-- - [Do We Still Need OCR?](https://pageindex.ai/blog/do-we-need-ocr): Explores how vision-based, reasoning-native RAG challenges the traditional OCR pipeline, and why the future of document AI might be *vectorless* and *vision-based*. -->
-
- **🧪 Cookbooks:**
-- [Vectorless RAG](https://docs.pageindex.ai/cookbook/vectorless-rag-pageindex): A minimal, hands-on example of reasoning-based RAG using PageIndex. No vectors, no chunking, and human-like retrieval.
-- [Vision-based Vectorless RAG](https://docs.pageindex.ai/cookbook/vision-rag-pageindex): OCR-free, vision-only RAG with PageIndex's reasoning-native retrieval workflow that works directly over PDF page images.
-</details>
+A real-time, speech-to-speech AI voice agent platform powered by the **Gemini Multimodal Live API**. The Python backend streams microphone audio to Gemini and plays the synthesised voice response back through the browser — all with sub-second latency.
 
 ---
 
-# 📑 Introduction to PageIndex
+## Features
 
-Are you frustrated with vector database retrieval accuracy for long professional documents? Traditional vector-based RAG relies on semantic *similarity* rather than true *relevance*. But **similarity ≠ relevance** — what we truly need in retrieval is **relevance**, and that requires **reasoning**. When working with professional documents that demand domain expertise and multi-step reasoning, similarity search often falls short.
-
-Inspired by AlphaGo, we propose **[PageIndex](https://vectify.ai/pageindex)** — a **vectorless**, **reasoning-based RAG** system that builds a **hierarchical tree index** from long documents and uses LLMs to **reason** *over that index* for **agentic, context-aware retrieval**.
-It simulates how *human experts* navigate and extract knowledge from complex documents through *tree search*, enabling LLMs to *think* and *reason* their way to the most relevant document sections. PageIndex performs retrieval in two steps:
-
-1. Generate a “Table-of-Contents” **tree structure index** of documents
-2. Perform reasoning-based retrieval through **tree search**
-
-<div align="center">
-  <a href="https://pageindex.ai/blog/pageindex-intro" target="_blank" title="The PageIndex Framework">
-    <img src="https://docs.pageindex.ai/images/cookbook/vectorless-rag.png" width="70%">
-  </a>
-</div>
-
-### 🎯 Core Features 
-
-Compared to traditional vector-based RAG, **PageIndex** features:
-- **No Vector DB**: Uses document structure and LLM reasoning for retrieval, instead of vector similarity search.
-- **No Chunking**: Documents are organized into natural sections, not artificial chunks.
-- **Human-like Retrieval**: Simulates how human experts navigate and extract knowledge from complex documents.
-- **Better Explainability and Traceability**: Retrieval is based on reasoning — traceable and interpretable, with page and section references. No more opaque, approximate vector search (“vibe retrieval”).
-
-PageIndex powers a reasoning-based RAG system that achieved **state-of-the-art** [98.7% accuracy](https://github.com/VectifyAI/Mafin2.5-FinanceBench) on FinanceBench, demonstrating superior performance over vector-based RAG solutions in professional document analysis (see our [blog post](https://vectify.ai/blog/Mafin2.5) for details).
-
-### 📍 Explore PageIndex
-
-To learn more, please see a detailed introduction of the [PageIndex framework](https://pageindex.ai/blog/pageindex-intro). Check out this GitHub repo for open-source code, and the [cookbooks](https://docs.pageindex.ai/cookbook), [tutorials](https://docs.pageindex.ai/tutorials), and [blog](https://pageindex.ai/blog) for additional usage guides and examples. 
-
-The PageIndex service is available as a ChatGPT-style [chat platform](https://chat.pageindex.ai), or can be integrated via [MCP](https://pageindex.ai/mcp) or [API](https://docs.pageindex.ai/quickstart).
-
-### 🛠️ Deployment Options
-- Self-host — run locally with this open-source repo.
-- Cloud Service — try instantly with our [Chat Platform](https://chat.pageindex.ai/), or integrate with [MCP](https://pageindex.ai/mcp) or [API](https://docs.pageindex.ai/quickstart).
-- _Enterprise_ — private or on-prem deployment. [Contact us](https://ii2abc2jejf.typeform.com/to/tK3AXl8T) or [book a demo](https://calendly.com/pageindex/meet) for more details.
-
-### 🧪 Quick Hands-on
-
-- Try the [**Vectorless RAG**](https://github.com/VectifyAI/PageIndex/blob/main/cookbook/pageindex_RAG_simple.ipynb) notebook — a *minimal*, hands-on example of reasoning-based RAG using PageIndex.
-- Experiment with [*Vision-based Vectorless RAG*](https://github.com/VectifyAI/PageIndex/blob/main/cookbook/vision_RAG_pageindex.ipynb) — no OCR; a minimal, reasoning-native RAG pipeline that works directly over page images.
-  
-<div align="center">
-  <a href="https://colab.research.google.com/github/VectifyAI/PageIndex/blob/main/cookbook/pageindex_RAG_simple.ipynb" target="_blank" rel="noopener">
-    <img src="https://img.shields.io/badge/Open_In_Colab-Vectorless_RAG-orange?style=for-the-badge&logo=googlecolab" alt="Open in Colab: Vectorless RAG" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://colab.research.google.com/github/VectifyAI/PageIndex/blob/main/cookbook/vision_RAG_pageindex.ipynb" target="_blank" rel="noopener">
-    <img src="https://img.shields.io/badge/Open_In_Colab-Vision_RAG-orange?style=for-the-badge&logo=googlecolab" alt="Open in Colab: Vision RAG" />
-  </a>
-</div>
+- Real-time speech-to-speech via Gemini Multimodal Live
+- Live waveform visualiser & transcript panel
+- Function-calling / tool dispatch (e.g. calendar scheduling)
+- Runtime config — change voice, model, and system prompt on the fly
+- Pure browser frontend — no build step required
 
 ---
 
-# 🌲 PageIndex Tree Structure
-PageIndex can transform lengthy PDF documents into a semantic **tree structure**, similar to a _"table of contents"_ but optimized for use with Large Language Models (LLMs). It's ideal for: financial reports, regulatory filings, academic textbooks, legal or technical manuals, and any document that exceeds LLM context limits.
+## Project Structure
 
-Below is an example PageIndex tree structure. Also see more example [documents](https://github.com/VectifyAI/PageIndex/tree/main/tests/pdfs) and generated [tree structures](https://github.com/VectifyAI/PageIndex/tree/main/tests/results).
-
-```jsonc
-...
-{
-  "title": "Financial Stability",
-  "node_id": "0006",
-  "start_index": 21,
-  "end_index": 22,
-  "summary": "The Federal Reserve ...",
-  "nodes": [
-    {
-      "title": "Monitoring Financial Vulnerabilities",
-      "node_id": "0007",
-      "start_index": 22,
-      "end_index": 28,
-      "summary": "The Federal Reserve's monitoring ..."
-    },
-    {
-      "title": "Domestic and International Cooperation and Coordination",
-      "node_id": "0008",
-      "start_index": 28,
-      "end_index": 31,
-      "summary": "In 2023, the Federal Reserve collaborated ..."
-    }
-  ]
-}
-...
+```
+Zenisth-Voice-AI-Voice-Agent-Platform/
+├── app/
+│   ├── server.py          # WebSocket server — bridges browser <-> Gemini Live
+│   ├── config.py          # Loads config.yaml + .env
+│   ├── bot.py             # Legacy Pipecat/WebRTC pipeline (not used by run.py)
+│   ├── agent/             # Gemini config & tool-dispatch logic
+│   └── services/          # External integrations (e.g. Cal.com)
+├── index.html             # Frontend UI
+├── script.js              # Frontend logic (WebSocket, AudioWorklet)
+├── audio-worklet.js       # AudioWorklet processor
+├── style.css              # Styles
+├── config.yaml            # Server + Gemini settings
+├── run.py                 # Entry point — starts both servers
+└── requirements.txt       # Python dependencies
 ```
 
-You can generate the PageIndex tree structure with this open-source repo, or use our [API](https://docs.pageindex.ai/quickstart) 
+---
+
+## Local Setup (VS Code)
+
+### Prerequisites
+
+| Tool | Minimum version |
+|------|----------------|
+| Python | 3.11 |
+| pip | any recent |
+| Google AI Studio key | [Get one free](https://aistudio.google.com/apikey) |
 
 ---
 
-# ⚙️ Package Usage
+### Step 1 — Clone or update the repository
 
-You can follow these steps to generate a PageIndex tree from a PDF document.
-
-### 1. Install dependencies
+Open a terminal in VS Code (`Ctrl`+`` ` ``) and run:
 
 ```bash
-pip3 install --upgrade -r requirements.txt
+# If you have not cloned yet:
+git clone https://github.com/dhruvinsomani0609/Zenisth-Voice-AI-Voice-Agent-Platform.git
+cd Zenisth-Voice-AI-Voice-Agent-Platform
+
+# If you already cloned, just pull the latest commits:
+git pull origin main
 ```
 
-### 2. Set your OpenAI API key
+> **Tip — open the folder in VS Code:**
+> ```
+> code .
+> ```
+> Or use **File → Open Folder** and select the repo directory.
 
-Create a `.env` file in the root directory and add your API key:
+---
+
+### Step 2 — Create a virtual environment (recommended)
 
 ```bash
-CHATGPT_API_KEY=your_openai_key_here
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS / Linux
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-### 3. Run PageIndex on your PDF
+> VS Code will detect the `.venv` automatically. If prompted, click **"Yes"** to use it as the workspace interpreter. You can also select it manually via `Ctrl+Shift+P` → **Python: Select Interpreter** → choose `.venv`.
+
+---
+
+### Step 3 — Install dependencies
 
 ```bash
-python3 run_pageindex.py --pdf_path /path/to/your/document.pdf
+pip install -r requirements.txt
 ```
 
-<details>
-<summary><strong>Optional parameters</strong></summary>
-<br>
-You can customize the processing with additional optional arguments:
+---
+
+### Step 4 — Configure your API key
+
+Create a `.env` file in the **root** of the repo (next to `run.py`):
+
+```dotenv
+# Required — your Google AI Studio key
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Optional — Cal.com scheduling integration
+# CAL_API_KEY=your_cal_api_key
+# CAL_EVENT_TYPE_ID=your_event_type_id
+# DEFAULT_TIMEZONE=Asia/Kolkata
+```
+
+> **Never commit `.env`** — it is already listed in `.gitignore`.
+
+---
+
+### Step 5 — (Optional) Adjust settings
+
+Open `config.yaml` to change the Gemini model, voice, or WebSocket port:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 9050          # Combined WebSocket + HTTP server port
+
+gemini:
+  model: "gemini-2.5-flash-native-audio-preview-12-2025"
+  voice_name: "Kore"  # Kore | Aoede | Puck | Charon | Zephyr | Fenrir | Leda
+  system_instruction: ""  # Optional default system prompt
+```
+
+---
+
+### Step 6 — Run the server
+
+#### Option A — VS Code debugger (one click)
+
+A **Run Server** launch configuration is included. Press **F5** (or go to **Run → Start Debugging**) and select **"Zenisth: Run Server"**.
+
+The debug console will show:
 
 ```
---model                 OpenAI model to use (default: gpt-4o-2024-11-20)
---toc-check-pages       Pages to check for table of contents (default: 20)
---max-pages-per-node    Max pages per node (default: 10)
---max-tokens-per-node   Max tokens per node (default: 20000)
---if-add-node-id        Add node ID (yes/no, default: yes)
---if-add-node-summary   Add node summary (yes/no, default: yes)
---if-add-doc-description Add doc description (yes/no, default: yes)
+INFO:server:Starting S2S Server on 0.0.0.0:9050
+INFO:server:Open browser at: http://127.0.0.1:9050
 ```
-</details>
 
-<details>
-<summary><strong>Markdown support</strong></summary>
-<br>
-We also provide markdown support for PageIndex. You can use the `-md_path` flag to generate a tree structure for a markdown file.
+#### Option B — Terminal
 
 ```bash
-python3 run_pageindex.py --md_path /path/to/your/document.md
+python run.py
 ```
-
-> Note: in this function, we use "#" to determine node heading and their levels. For example, "##" is level 2, "###" is level 3, etc. Make sure your markdown file is formatted correctly. If your Markdown file was converted from a PDF or HTML, we don't recommend using this function, since most existing conversion tools cannot preserve the original hierarchy. Instead, use our [PageIndex OCR](https://pageindex.ai/blog/ocr), which is designed to preserve the original hierarchy, to convert the PDF to a markdown file and then use this function.
-</details>
-
-<!-- 
-# ☁️ Improved Tree Generation with PageIndex OCR
-
-This repo is designed for generating PageIndex tree structure for simple PDFs, but many real-world use cases involve complex PDFs that are hard to parse by classic Python tools. However, extracting high-quality text from PDF documents remains a non-trivial challenge. Most OCR tools only extract page-level content, losing the broader document context and hierarchy.
-
-To address this, we introduced PageIndex OCR — the first long-context OCR model designed to preserve the global structure of documents. PageIndex OCR significantly outperforms other leading OCR tools, such as those from Mistral and Contextual AI, in recognizing true hierarchy and semantic relationships across document pages.
-
-- Experience next-level OCR quality with PageIndex OCR at our [Dashboard](https://dash.pageindex.ai/).
-- Integrate PageIndex OCR seamlessly into your stack via our [API](https://docs.pageindex.ai/quickstart).
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/eb35d8ae-865c-4e60-a33b-ebbd00c41732" width="80%">
-</p>
--->
 
 ---
 
-# 📈 Case Study: PageIndex Leads Finance QA Benchmark
+### Step 7 — Open the UI
 
-[Mafin 2.5](https://vectify.ai/mafin) is a reasoning-based RAG system for financial document analysis, powered by **PageIndex**. It achieved a state-of-the-art [**98.7% accuracy**](https://vectify.ai/blog/Mafin2.5) on the [FinanceBench](https://arxiv.org/abs/2311.11944) benchmark, significantly outperforming traditional vector-based RAG systems.
+Navigate to **http://127.0.0.1:9050** in your browser and click **Start Call**.
 
-PageIndex's hierarchical indexing and reasoning-driven retrieval enable precise navigation and extraction of relevant context from complex financial reports, such as SEC filings and earnings disclosures.
-
-Explore the full [benchmark results](https://github.com/VectifyAI/Mafin2.5-FinanceBench) and our [blog post](https://vectify.ai/blog/Mafin2.5) for detailed comparisons and performance metrics.
-
-<div align="center">
-  <a href="https://github.com/VectifyAI/Mafin2.5-FinanceBench">
-    <img src="https://github.com/user-attachments/assets/571aa074-d803-43c7-80c4-a04254b782a3" width="70%">
-  </a>
-</div>
+> **GitHub Codespaces:** Open the **Ports** panel, forward port `9050`, and open the generated `https://…-9050.…app.github.dev` URL. The WebSocket automatically upgrades to `wss://` — no extra configuration needed.
 
 ---
 
-# 🧭 Resources
+## Updating to the Latest Commit
 
-* 🧪 [Cookbooks](https://docs.pageindex.ai/cookbook/vectorless-rag-pageindex): hands-on, runnable examples and advanced use cases.
-* 📖 [Tutorials](https://docs.pageindex.ai/doc-search): practical guides and strategies, including *Document Search* and *Tree Search*.
-* 📝 [Blog](https://pageindex.ai/blog): technical articles, research insights, and product updates.
-* 🔌 [MCP setup](https://pageindex.ai/mcp#quick-setup) & [API docs](https://docs.pageindex.ai/quickstart): integration details and configuration options.
+Whenever a new fix or feature is merged, pull and restart:
+
+```bash
+git pull origin main
+pip install -r requirements.txt   # only needed if requirements changed
+python run.py
+```
 
 ---
 
-# ⭐ Support Us
-Please cite this work as:
-```
-Mingtian Zhang, Yu Tang and PageIndex Team,
-"PageIndex: Next-Generation Vectorless, Reasoning-based RAG",
-PageIndex Blog, Sep 2025.
-```
+## Troubleshooting
 
-Or use the BibTeX citation:
-
-```
-@article{zhang2025pageindex,
-  author = {Mingtian Zhang and Yu Tang and PageIndex Team},
-  title = {PageIndex: Next-Generation Vectorless, Reasoning-based RAG},
-  journal = {PageIndex Blog},
-  year = {2025},
-  month = {September},
-  note = {https://pageindex.ai/blog/pageindex-intro},
-}
-```
-
-Leave us a star 🌟 if you like our project. Thank you!  
-
-<p>
-  <img src="https://github.com/user-attachments/assets/eae4ff38-48ae-4a7c-b19f-eab81201d794" width="80%">
-</p>
-
-### Connect with Us
-
-[![Twitter](https://img.shields.io/badge/Twitter-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/PageIndexAI)&nbsp;
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/vectify-ai/)&nbsp;
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VuXuf29EUj)&nbsp;
-[![Contact Us](https://img.shields.io/badge/Contact_Us-3B82F6?style=for-the-badge&logo=envelope&logoColor=white)](https://ii2abc2jejf.typeform.com/to/tK3AXl8T)
+| Error | Fix |
+|-------|-----|
+| `TypeError: send_realtime_input() got an unexpected keyword argument 'media_chunks'` | Pull latest — this is fixed in the current codebase. |
+| `GOOGLE_API_KEY not set` | Add `GOOGLE_API_KEY=...` to your `.env` file. |
+| `ModuleNotFoundError` | Run `pip install -r requirements.txt` inside your virtual env. |
+| Port `9050` already in use | Change `server.port` in `config.yaml`, or stop the existing process. |
+| Browser microphone blocked | Make sure the browser has microphone permission for `localhost`. |
 
 ---
 
-© 2025 [Vectify AI](https://vectify.ai)
+## License
+
+See [LICENSE](LICENSE).
