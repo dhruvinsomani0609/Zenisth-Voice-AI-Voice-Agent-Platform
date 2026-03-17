@@ -362,7 +362,15 @@ FUNCTION_REGISTRY: dict[str, dict] = {
         },
         "handler": _end_call,
     },
-    "search_company_knowledge": {
+}
+
+# Only register the knowledge-base search tool when the required external services
+# (Groq + Supabase, with Redis as cache) are configured.  Without them every call
+# fails immediately, Gemini treats the error as a recoverable failure, and the
+# model loops retrying the tool — causing severe latency and eventual ping-timeout
+# disconnections.
+if os.environ.get("GROQ_API_KEY") and os.environ.get("SUPABASE_URL"):
+    FUNCTION_REGISTRY["search_company_knowledge"] = {
         "schema": {
             "name": "search_company_knowledge",
             "description": (
@@ -383,8 +391,7 @@ FUNCTION_REGISTRY: dict[str, dict] = {
             },
         },
         "handler": _search_company_knowledge,
-    },
-}
+    }
 
 
 def get_schemas() -> list[dict]:

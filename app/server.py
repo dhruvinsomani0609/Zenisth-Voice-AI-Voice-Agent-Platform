@@ -77,8 +77,15 @@ async def gemini_to_client(session, websocket):
                                 # It's an audio chunk over binary
                                 await websocket.send(part.inline_data.data)
 
-                            # Forward text scripts (Transcripts)
-                            if part.text:
+                            # Forward transcript text to the client.
+                            # Skip thinking/reasoning tokens (part.thought=True) —
+                            # these are Gemini's internal chain-of-thought and must
+                            # never be shown to the end-user.
+                            # NOTE: thinking is also suppressed at source via
+                            # ThinkingConfig(include_thoughts=False) in settings.py;
+                            # this guard is a defensive layer for SDK version
+                            # compatibility where include_thoughts may be ignored.
+                            if part.text and not part.thought:
                                 await websocket.send(
                                     json.dumps({"type": "transcript", "text": part.text})
                                 )
@@ -291,6 +298,13 @@ async def handle_client(websocket):
                     websocket, {"type": "system", "message": "Connected to AI agent."}
                 )
 
+                # Trigger the agent to deliver its opening greeting immediately
+                # so the user hears the agent speak first without having to say
+                # anything themselves.
+                await session.send_realtime_input(
+                    text="[Call connected. Please deliver your opening greeting now.]"
+                )
+
                 session_start = [time.monotonic()]
                 sender_task = asyncio.create_task(
                     gemini_sender(session, to_gemini_queue, user_cfg, session_start)
@@ -417,7 +431,9 @@ async def _process_http_request(path: str, request_headers):
 async def main():
     logger.info(f"Starting S2S Server on {HOST}:{PORT}")
     async with serve(
-        handle_client, HOST, PORT, process_request=_process_http_request
+        handle_client, HOST, PORT,
+        process_request=_process_http_request,
+        ping_timeout=60,
     ):
         logger.info(f"Open browser at: http://127.0.0.1:{PORT}")
         await asyncio.Future()  # Run forever

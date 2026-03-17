@@ -15,15 +15,10 @@ VALID_NATIVE_AUDIO_VOICES = frozenset({
 })
 DEFAULT_VOICE = "Kore"
 
-_PROMPT_TEMPLATE = """\
+# Fallback prompt used when system_prompt.txt is absent
+_FALLBACK_PROMPT = """\
 You are a helpful AI Voice Assistant. Today is {current_date}.
 You are NOT human. You help users by answering questions and scheduling appointments.
-
-HOW TO ANSWER QUESTIONS:
-- When the user asks ANY question about a topic, product, company, process, or document content,
-  ALWAYS call the `search_company_knowledge` function first to find the answer.
-- Base your spoken answer ONLY on what the function returns. Do not guess or hallucinate.
-- If the function returns no useful information, say: "I don't have that information in the current document."
 
 SCHEDULING PROTOCOL:
 Follow these steps STRICTLY when a user wants to book a meeting or appointment:
@@ -41,43 +36,45 @@ Step 2 — Confirm a slot:
 
 Step 3 — Collect details:
 - Ask for their full name.
-- Ask for their email address. When they provide it, ALWAYS read it back letter by letter to confirm, e.g., "I have d-h-r-u-v-i-n dot s-o-m-a-n-i at zenisth dot ai — is that correct?"
+- Ask for their email address. When they provide it, ALWAYS read it back letter by letter to confirm.
 - If the email sounds complex or unclear, say: "Could you spell that out for me phonetically?"
 - Do NOT call `book_appointment` until the user explicitly confirms the email is correct.
 
 Step 4 — Book:
 - Say: "Perfect, locking that in for you now..." before calling `book_appointment`.
 - If booking succeeds, confirm: date, time, and email where the invite was sent.
-- If booking returns an error:
-  - Slot taken → "That slot was just taken. Let me offer you another time." Then re-run check_availability.
-  - Invalid email → "There was a problem with that email. Could you double-check and spell it again?"
-  - Other error → Apologize and explain the issue clearly in plain language.
 
 VOICE & TONE:
 - Short, clear sentences. Conversational and friendly.
 - Acknowledge the question before answering.
 - Never read out long lists. Summarize key points naturally.
-- Always use the predefined voice persona.
 
 STRICT RULES:
-- Always use search_company_knowledge before answering content-specific questions.
-- Never claim to know something that was not returned by the tool.
+- Never claim to know something outside your knowledge.
 - Always confirm email addresses before booking.
 - You are AI. Never claim to be human.
 """
 
+# Path to the project-level system prompt file
+_SYSTEM_PROMPT_FILE = cfg.base_dir / "system_prompt.txt"
+
+
+def _load_default_prompt() -> str:
+    """Load system_prompt.txt from the project root if it exists, else use the fallback."""
+    if _SYSTEM_PROMPT_FILE.exists():
+        text = _SYSTEM_PROMPT_FILE.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    return _FALLBACK_PROMPT
+
 
 def build_gemini_config(user_cfg: dict) -> types.LiveConnectConfig:
     custom_prompt = (user_cfg.get("system_prompt") or "").strip()
-    prompt_date_header = (
-        f"System Note: Today is {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
-    )
+    date_header = f"System Note: Today is {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
     prompt = (
-        f"{prompt_date_header}{custom_prompt}"
+        f"{date_header}{custom_prompt}"
         if custom_prompt
-        else _PROMPT_TEMPLATE.format(
-            current_date=datetime.now().strftime("%A, %B %d, %Y"),
-        )
+        else f"{date_header}{_load_default_prompt()}"
     )
 
     raw_voice = (user_cfg.get("voice_name") or cfg.gemini_voice_name or "").strip()
@@ -92,5 +89,7 @@ def build_gemini_config(user_cfg: dict) -> types.LiveConnectConfig:
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name)
             )
         ),
+        # Disable thinking tokens so internal reasoning never reaches the client
+        thinking_config=types.ThinkingConfig(include_thoughts=False),
         tools=schemas,
     )
