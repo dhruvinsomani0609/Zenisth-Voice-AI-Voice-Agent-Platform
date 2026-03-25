@@ -20,5 +20,11 @@ redis
 # ── Pipecat (voice pipeline — WebRTC transport) ───────────────────────────────
 pipecat-ai[deepgram,groq,cartesia]
 
+# ── LiveKit Agents (chained STT→LLM→TTS via LiveKit Inference) ───────────────
+livekit-agents>=1.0
+livekit-plugins-silero           # VAD (Voice Activity Detection)
+livekit-plugins-noise-cancellation  # BVC audio noise suppression
+livekit-api                      # token generation for FastAPI bridge
+
 httpx>=0.27.0
 tzdata>=2024.1

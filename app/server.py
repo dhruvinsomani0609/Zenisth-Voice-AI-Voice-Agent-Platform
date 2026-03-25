@@ -35,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 def _load_uploads_index() -> dict:
     if _UPLOADS_INDEX.exists():
         try:
@@ -42,6 +43,7 @@ def _load_uploads_index() -> dict:
         except Exception:
             pass
     return {}
+
 
 def _update_uploads_index(doc_id: str, filename: str, file_size: int) -> None:
     index = _load_uploads_index()
@@ -52,11 +54,13 @@ def _update_uploads_index(doc_id: str, filename: str, file_size: int) -> None:
     }
     _UPLOADS_INDEX.write_text(json.dumps(index, indent=2), encoding="utf-8")
 
+
 def _remove_from_uploads_index(filename: str) -> None:
     index = _load_uploads_index()
     if filename in index:
         del index[filename]
         _UPLOADS_INDEX.write_text(json.dumps(index, indent=2), encoding="utf-8")
+
 
 _SIMPLE_EVENTS: dict[str, str] = {
     "SettingsApplied": "connected",
@@ -75,9 +79,11 @@ _SIDE_EFFECTS: dict[str, str] = {
 
 # ── API Routes ──
 
+
 @app.get("/api/models")
 async def get_models():
     return cfg.models
+
 
 @app.get("/api/config")
 async def get_config():
@@ -88,27 +94,91 @@ async def get_config():
         data["system_prompt"] = prompt_path.read_text(encoding="utf-8")
     return data
 
+
+@app.get("/api/agents")
+async def list_agents():
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    key = os.environ.get("SUPABASE_KEY", "").strip()
+    if not url or not key:
+        return []
+    try:
+        from supabase._async.client import create_client
+
+        client = await create_client(url, key)
+        resp = (
+            await client.table("voice_agents")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return resp.data
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
+@app.post("/api/agents")
+async def save_agent(request: Request):
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    key = os.environ.get("SUPABASE_KEY", "").strip()
+    if not url or not key:
+        return JSONResponse({"error": "Supabase not configured"}, 400)
+    try:
+        body = await request.json()
+        from supabase._async.client import create_client
+
+        client = await create_client(url, key)
+        # Ensure we don't pass an empty id if creating new
+        if "id" in body and not body["id"]:
+            del body["id"]
+        resp = await client.table("voice_agents").upsert([body]).execute()
+        return resp.data[0] if resp.data else {}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
+@app.delete("/api/agents/{agent_id}")
+async def delete_agent(agent_id: str):
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    key = os.environ.get("SUPABASE_KEY", "").strip()
+    if not url or not key:
+        return JSONResponse({"error": "Supabase not configured"}, 400)
+    try:
+        from supabase._async.client import create_client
+
+        client = await create_client(url, key)
+        await client.table("voice_agents").delete().eq("id", agent_id).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
 @app.get("/api/documents")
 async def list_documents():
     try:
         from supabase._async.client import create_client
+
         index = _load_uploads_index()
         disk_files = []
 
         for fname, meta in index.items():
             file_path = UPLOADS_DIR / fname
-            if not file_path.exists(): continue
+            if not file_path.exists():
+                continue
             stat = file_path.stat()
             doc_id = meta.get("document_id", "")
-            disk_files.append({
-                "document_id": doc_id,
-                "filename": fname,
-                "file_size": stat.st_size,
-                "modified_at": meta.get("uploaded_at", datetime.fromtimestamp(stat.st_mtime).isoformat()),
-                "status": "uploaded",
-                "node_count": 0,
-                "created_at": "",
-            })
+            disk_files.append(
+                {
+                    "document_id": doc_id,
+                    "filename": fname,
+                    "file_size": stat.st_size,
+                    "modified_at": meta.get(
+                        "uploaded_at", datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    ),
+                    "status": "uploaded",
+                    "node_count": 0,
+                    "created_at": "",
+                }
+            )
 
         disk_files.sort(key=lambda x: x["modified_at"], reverse=True)
 
@@ -118,25 +188,34 @@ async def list_documents():
         ingested_map = {}
         if url and key:
             client = await create_client(url, key)
-            resp = await client.table("document_nodes").select("document_id, created_at").execute()
+            resp = (
+                await client.table("document_nodes")
+                .select("document_id, created_at")
+                .execute()
+            )
             for row in resp.data:
                 did = row["document_id"]
                 if did not in ingested_map:
-                    ingested_map[did] = {"node_count": 0, "created_at": row.get("created_at", "")}
+                    ingested_map[did] = {
+                        "node_count": 0,
+                        "created_at": row.get("created_at", ""),
+                    }
                 ingested_map[did]["node_count"] += 1
 
         seen_doc_ids = {e["document_id"] for e in disk_files}
         for did, info in ingested_map.items():
             if did not in seen_doc_ids:
-                disk_files.append({
-                    "document_id": did,
-                    "filename": did + " (file not on disk)",
-                    "file_size": 0,
-                    "modified_at": info["created_at"],
-                    "status": "ready",
-                    "node_count": info["node_count"],
-                    "created_at": info["created_at"],
-                })
+                disk_files.append(
+                    {
+                        "document_id": did,
+                        "filename": did + " (file not on disk)",
+                        "file_size": 0,
+                        "modified_at": info["created_at"],
+                        "status": "ready",
+                        "node_count": info["node_count"],
+                        "created_at": info["created_at"],
+                    }
+                )
 
         for entry in disk_files:
             did = entry["document_id"]
@@ -149,9 +228,11 @@ async def list_documents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     import re
+
     try:
         filename = Path(file.filename).name
         ext = Path(filename).suffix.lower()
@@ -162,11 +243,17 @@ async def upload_file(file: UploadFile = File(...)):
         dest = UPLOADS_DIR / filename
         content = await file.read()
         dest.write_bytes(content)
-        
+
         _update_uploads_index(doc_id, filename, len(content))
-        return {"status": "uploaded", "document_id": doc_id, "filename": filename, "file_size": len(content)}
+        return {
+            "status": "uploaded",
+            "document_id": doc_id,
+            "filename": filename,
+            "file_size": len(content),
+        }
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
+
 
 @app.post("/api/activate")
 async def activate_document(request: Request):
@@ -189,27 +276,40 @@ async def activate_document(request: Request):
 
         url = os.environ.get("SUPABASE_URL", "").strip()
         key = os.environ.get("SUPABASE_KEY", "").strip()
-        
+
         async def _check_existing():
-            if not url or not key: return 0
+            if not url or not key:
+                return 0
             client = await _cc(url, key)
-            resp = await client.table("document_nodes").select("node_id", count="exact").eq("document_id", doc_id).limit(1).execute()
+            resp = (
+                await client.table("document_nodes")
+                .select("node_id", count="exact")
+                .eq("document_id", doc_id)
+                .limit(1)
+                .execute()
+            )
             return resp.count or len(resp.data)
 
         existing = await _check_existing()
         if existing:
-            return {"status": "already_ingested", "document_id": doc_id, "node_count": existing}
+            return {
+                "status": "already_ingested",
+                "document_id": doc_id,
+                "node_count": existing,
+            }
 
         print(f"[activate] Ingesting '{dest}'...")
         nodes = await ingest_document(str(dest), doc_id)
         await insert_nodes(nodes)
         await cache_document_outline(doc_id)
-        
+
         return {"status": "ok", "document_id": doc_id, "node_count": len(nodes)}
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return JSONResponse({"error": str(e)}, 500)
+
 
 @app.post("/api/config/save")
 async def save_config(request: Request):
@@ -222,9 +322,19 @@ async def save_config(request: Request):
         agent = raw.setdefault("agent", {})
         defaults = agent.setdefault("defaults", {})
 
-        allowed = {"voice_model", "stt_model", "llm_model", "temperature", "greeting", 
-                   "voice_speed", "voice_emotion", "barge_in", "endpointing", "filler_audio"}
-        
+        allowed = {
+            "voice_model",
+            "stt_model",
+            "llm_model",
+            "temperature",
+            "greeting",
+            "voice_speed",
+            "voice_emotion",
+            "barge_in",
+            "endpointing",
+            "filler_audio",
+        }
+
         for k, v in updates.items():
             if k in allowed:
                 defaults[k] = v
@@ -239,13 +349,14 @@ async def save_config(request: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
 
+
 @app.delete("/api/documents")
 async def delete_document(request: Request):
     try:
         body = await request.json()
         doc_id = body.get("document_id", "").strip()
         filename = body.get("filename", "").strip()
-        
+
         from supabase._async.client import create_client
         import redis.asyncio as aioredis
 
@@ -253,8 +364,10 @@ async def delete_document(request: Request):
         key = os.environ.get("SUPABASE_KEY", "").strip()
         if url and key:
             client = await create_client(url, key)
-            await client.table("document_nodes").delete().eq("document_id", doc_id).execute()
-        
+            await client.table("document_nodes").delete().eq(
+                "document_id", doc_id
+            ).execute()
+
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
         r = await aioredis.from_url(redis_url)
         await r.delete(f"outline:{doc_id}")
@@ -262,14 +375,80 @@ async def delete_document(request: Request):
 
         if filename:
             file_path = UPLOADS_DIR / filename
-            if file_path.exists(): file_path.unlink()
+            if file_path.exists():
+                file_path.unlink()
             _remove_from_uploads_index(filename)
 
         return {"status": "deleted", "document_id": doc_id}
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
 
+
+# ── LiveKit: Access Token Generation ──────────────────────────────────────────
+
+
+@app.post("/api/livekit/token")
+async def get_livekit_token(request: Request):
+    """
+    Generate a short-lived LiveKit access token for a browser client.
+    The token includes a RoomConfiguration that tells LiveKit Cloud
+    to auto-dispatch the Zenisth agent worker into the room.
+    """
+    try:
+        from livekit.api import (
+            AccessToken,
+            VideoGrants,
+            RoomConfiguration,
+            RoomAgentDispatch,
+        )
+
+        body = (
+            await request.json()
+            if request.headers.get("content-type") == "application/json"
+            else {}
+        )
+        room = body.get("room", "zenisth-room")
+        identity = body.get("identity") or f"user-{int(__import__('time').time())}"
+
+        lk_api_key = os.environ.get("LIVEKIT_API_KEY", "")
+        lk_api_secret = os.environ.get("LIVEKIT_API_SECRET", "")
+
+        if not lk_api_key or not lk_api_secret:
+            return JSONResponse(
+                {"error": "LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be set in .env"},
+                status_code=500,
+            )
+
+        token = (
+            AccessToken(lk_api_key, lk_api_secret)
+            .with_identity(identity)
+            .with_name(identity)
+            .with_grants(VideoGrants(room_join=True, room=room))
+            .with_room_config(
+                RoomConfiguration(
+                    agents=[RoomAgentDispatch(agent_name="zenisth-agent")]
+                )
+            )
+            .to_jwt()
+        )
+
+        return {
+            "token": token,
+            "room": room,
+            "identity": identity,
+            "url": os.environ.get("LIVEKIT_URL", ""),
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ── [DEPRECATED] Deepgram WebSocket relay ─────────────────────────────────────
+# This relay is superseded by the LiveKit Agent Worker (app/agent_worker.py).
+# Kept for rollback safety. Do NOT remove until LiveKit PoC is validated.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ── WebSocket relay ──
+
 
 async def _relay_mic_to_dg(browser_ws: WebSocket, dg_ws):
     try:
@@ -278,48 +457,68 @@ async def _relay_mic_to_dg(browser_ws: WebSocket, dg_ws):
     except Exception:
         pass
 
+
 async def _relay_dg_to_browser(dg_ws, browser_ws: WebSocket, user_cfg: dict):
     async for msg in dg_ws:
         if isinstance(msg, bytes):
             await browser_ws.send_bytes(msg)
             continue
-        
+
         event = json.loads(msg)
         t = event.get("type", "")
-        
+
         if t in _SIMPLE_EVENTS:
             await browser_ws.send_json({"event": _SIMPLE_EVENTS[t]})
         elif t == "ConversationText":
-            await browser_ws.send_json({
-                "event": "transcript",
-                "role": event.get("role"),
-                "text": event.get("content", ""),
-            })
+            await browser_ws.send_json(
+                {
+                    "event": "transcript",
+                    "role": event.get("role"),
+                    "text": event.get("content", ""),
+                }
+            )
         elif t == "FunctionCallRequest":
             for fn in event.get("functions", []):
                 await _handle_function_call(fn, dg_ws, browser_ws, user_cfg)
         elif t == "Error":
-            await browser_ws.send_json({
-                "event": "error",
-                "message": event.get("description", "Unknown Deepgram error"),
-                "code": event.get("code", ""),
-            })
+            await browser_ws.send_json(
+                {
+                    "event": "error",
+                    "message": event.get("description", "Unknown Deepgram error"),
+                    "code": event.get("code", ""),
+                }
+            )
+
 
 async def _handle_function_call(fn: dict, dg_ws, browser_ws: WebSocket, user_cfg: dict):
     name, fn_id = fn["name"], fn["id"]
-    try: params = json.loads(fn.get("arguments", "{}"))
-    except: params = {}
-    
+    try:
+        params = json.loads(fn.get("arguments", "{}"))
+    except:
+        params = {}
+
     if user_cfg.get("document_id"):
         params["_document_id"] = user_cfg["document_id"]
-    
+
     result = dispatch(name, params)
-    
-    await browser_ws.send_json({"event": "function_call", "name": name, "params": params, "result": result})
-    await dg_ws.send(json.dumps({"type": "FunctionCallResponse", "id": fn_id, "name": name, "content": json.dumps(result)}))
-    
+
+    await browser_ws.send_json(
+        {"event": "function_call", "name": name, "params": params, "result": result}
+    )
+    await dg_ws.send(
+        json.dumps(
+            {
+                "type": "FunctionCallResponse",
+                "id": fn_id,
+                "name": name,
+                "content": json.dumps(result),
+            }
+        )
+    )
+
     if name in _SIDE_EFFECTS:
         await browser_ws.send_json({"event": _SIDE_EFFECTS[name], "data": result})
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -329,7 +528,7 @@ async def websocket_endpoint(websocket: WebSocket):
         # Initial config
         first = await websocket.receive_text()
         user_cfg = json.loads(first) if first.startswith("{") else {}
-        
+
         # Determine which API key to use:
         # 1. Custom key from the frontend
         # 2. Server's default key from .env
@@ -337,21 +536,24 @@ async def websocket_endpoint(websocket: WebSocket):
         api_key = client_api_key or cfg.api_key
 
         if not api_key:
-            await websocket.send_json({
-                "event": "error", 
-                "message": "Deepgram API key missing. Please provide one in the Developer settings."
-            })
+            await websocket.send_json(
+                {
+                    "event": "error",
+                    "message": "Deepgram API key missing. Please provide one in the Developer settings.",
+                }
+            )
             await websocket.close()
             return
 
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] WS connected {'(using custom key)' if client_api_key else ''}")
-        
+        print(
+            f"[{datetime.now().strftime('%H:%M:%S')}] WS connected {'(using custom key)' if client_api_key else ''}"
+        )
+
         async with websockets.connect(
-            cfg.deepgram_url, 
-            additional_headers={"Authorization": f"Token {api_key}"}
+            cfg.deepgram_url, additional_headers={"Authorization": f"Token {api_key}"}
         ) as dg_ws:
             await dg_ws.send(json.dumps(build_settings(user_cfg)))
-            
+
             async def _keep_alive():
                 while True:
                     await asyncio.sleep(8)
@@ -360,18 +562,22 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.gather(
                 _relay_mic_to_dg(websocket, dg_ws),
                 _relay_dg_to_browser(dg_ws, websocket, user_cfg),
-                _keep_alive()
+                _keep_alive(),
             )
     except Exception as e:
         print(f"[WS ERROR] {e}")
-        try: await websocket.send_json({"event": "error", "message": str(e)})
-        except: pass
+        try:
+            await websocket.send_json({"event": "error", "message": str(e)})
+        except:
+            pass
     finally:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] WS disconnected")
+
 
 # ── Static Files ──
 # Always mount static files last to avoid overriding API routes
 app.mount("/", StaticFiles(directory=str(cfg.base_dir), html=True), name="static")
+
 
 def main():
     sys.stdout = io.TextIOWrapper(
@@ -381,6 +587,7 @@ def main():
     print(f"  Unified URL -> http://localhost:{cfg.http_port}")
     print(f"  API key: {'SET' if cfg.api_key else 'MISSING'}")
     uvicorn.run(app, host="0.0.0.0", port=cfg.http_port)
+
 
 if __name__ == "__main__":
     main()

@@ -1156,6 +1156,47 @@
        border-bottom-color: var(--teal)
    }
 
+   .view-container {
+       display: none;
+       flex-direction: column;
+       flex: 1;
+       overflow: hidden;
+   }
+
+   .view-container.active {
+       display: flex;
+       animation: fadeSlide .25s ease;
+   }
+
+   @keyframes fadeSlide {
+       from {
+           opacity: 0;
+           transform: translateY(8px);
+       }
+
+       to {
+           opacity: 1;
+           transform: translateY(0);
+       }
+   }
+
+   .active-agent-banner {
+       background: linear-gradient(145deg, rgba(45, 212, 191, .1), rgba(6, 8, 16, 0.5));
+       border: 1px solid rgba(45, 212, 191, .4);
+       border-radius: 12px;
+       padding: 18px 20px;
+       margin: 16px 20px 0;
+       display: flex;
+       flex-direction: column;
+       box-shadow: 0 4px 20px rgba(45, 212, 191, .08);
+       transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+   }
+
+   .active-agent-banner.activating {
+       transform: scale(0.97);
+       opacity: 0.5;
+   }
+
    .sm-pane {
        display: none;
        flex: 1;
@@ -1172,7 +1213,8 @@
        border-top: 1px solid var(--br);
        display: flex;
        justify-content: flex-end;
-       gap: 8px
+       gap: 8px;
+       background: var(--s1);
    }
 
    /* form fields in settings */
@@ -1343,8 +1385,15 @@
        border: 1px solid var(--br);
        border-radius: 8px;
        padding: 10px 14px;
-       margin-bottom: 6px;
-       animation: fadein .2s ease
+       margin-bottom: 8px;
+       animation: fadein .2s ease;
+       transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+   }
+
+   .doc-item.inactive-doc:hover {
+       transform: translateY(-2px);
+       border-color: var(--br2);
+       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
    }
 
    .doc-item.active-doc {
@@ -1438,137 +1487,254 @@
        border: 1px solid rgba(248, 113, 113, .2);
        color: var(--err)
    }
-    /* ─ doc-list-hdr flex layout ─ */
-    .doc-list-hdr { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; }
 
-    /* ─ doc-hint subtitle ─ */
-    .doc-hint { font-size: .65rem; font-weight: 400; color: var(--t3); text-transform: none; letter-spacing: 0; white-space: nowrap; }
-    .doc-hint strong { color: var(--t2); }
+   /* ─ doc-list-hdr flex layout ─ */
+   .doc-list-hdr {
+       display: flex !important;
+       align-items: center !important;
+       justify-content: space-between !important;
+       gap: 8px !important;
+   }
 
-    /* ─ status badge ─ */
-    .doc-status-badge { font-size: .6rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; letter-spacing: .3px; flex-shrink: 0; }
-    .doc-status-badge.uploaded { background: rgba(56,70,90,.5); border: 1px solid rgba(56,70,90,.8); color: var(--t2); }
-    .doc-status-badge.activating { background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.3); color: var(--violet); animation: pulse-badge 1.2s ease-in-out infinite; }
-    .doc-status-badge.ready { background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.22); color: var(--agent); }
-    @keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:.5} }
+   /* ─ doc-hint subtitle ─ */
+   .doc-hint {
+       font-size: .65rem;
+       font-weight: 400;
+       color: var(--t3);
+       text-transform: none;
+       letter-spacing: 0;
+       white-space: nowrap;
+   }
 
-    /* ─ Mark as Active button ─ */
-    .doc-activate-btn { font-size: .62rem; padding: 4px 10px; border-radius: 8px; background: rgba(167,139,250,.12); border: 1.5px solid rgba(167,139,250,.35); color: var(--violet); cursor: pointer; font-weight: 600; white-space: nowrap; transition: .15s; flex-shrink: 0; }
-    .doc-activate-btn:hover { background: rgba(167,139,250,.22); border-color: var(--violet); box-shadow: 0 0 0 2px rgba(167,139,250,.18); }
-    .activating-btn { animation: pulse-badge 1s ease-in-out infinite; cursor: not-allowed; pointer-events: none; }
+   .doc-hint strong {
+       color: var(--t2);
+   }
 
-    /* ─ toast notifications ─ */
-    #toast-wrap { position: fixed; bottom: 80px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 9999; }
-    .toast { font-size: .78rem; padding: 10px 18px; border-radius: 10px; background: var(--s2); border: 1px solid var(--br); color: var(--text); animation: fadein .2s ease; max-width: 360px; }
-    .toast.ok { border-color: rgba(74,222,128,.3); color: var(--agent); }
-    .toast.err { border-color: rgba(248,113,113,.3); color: var(--err); }
+   /* ─ status badge ─ */
+   .doc-status-badge {
+       font-size: .6rem;
+       padding: 2px 8px;
+       border-radius: 20px;
+       font-weight: 600;
+       white-space: nowrap;
+       letter-spacing: .3px;
+       flex-shrink: 0;
+   }
 
-    /* ── NEW: Toggle switch ── */
-    .switch {
-        position: relative;
-        display: inline-block;
-        width: 42px;
-        height: 24px;
-        flex-shrink: 0;
-        cursor: pointer;
-    }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .switch .slider {
-        position: absolute;
-        inset: 0;
-        background: var(--s3);
-        border: 1px solid var(--br2);
-        border-radius: 24px;
-        transition: .2s;
-    }
-    .switch .slider::before {
-        content: '';
-        position: absolute;
-        left: 3px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: var(--t2);
-        transition: .2s;
-    }
-    .switch input:checked + .slider {
-        background: rgba(45,212,191,.18);
-        border-color: var(--teal);
-    }
-    .switch input:checked + .slider::before {
-        background: var(--teal);
-        transform: translateX(18px) translateY(-50%);
-        box-shadow: 0 0 8px rgba(45,212,191,.4);
-    }
-    .switch input:focus + .slider {
-        box-shadow: 0 0 0 2px rgba(45,212,191,.15);
-    }
+   .doc-status-badge.uploaded {
+       background: rgba(56, 70, 90, .5);
+       border: 1px solid rgba(56, 70, 90, .8);
+       color: var(--t2);
+   }
 
-    /* ── Toggle row layout ── */
-    .sf-toggle-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        background: var(--s2);
-        border: 1px solid var(--br);
-        border-radius: 10px;
-        padding: 14px 16px;
-    }
-    .sf-toggle-label {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-    .sf-toggle-label label {
-        font-size: .71rem;
-        font-weight: 600;
-        color: var(--text);
-        text-transform: uppercase;
-        letter-spacing: .5px;
-        margin-bottom: 0;
-    }
+   .doc-status-badge.activating {
+       background: rgba(167, 139, 250, .1);
+       border: 1px solid rgba(167, 139, 250, .3);
+       color: var(--violet);
+       animation: pulse-badge 1.2s ease-in-out infinite;
+   }
 
-    /* ── Hint / sub-label ── */
-    .sf-hint {
-        font-size: .67rem;
-        font-weight: 400;
-        color: var(--t3);
-        text-transform: none;
-        letter-spacing: 0;
-        line-height: 1.4;
-        display: block;
-        margin-top: 2px;
-    }
+   .doc-status-badge.ready {
+       background: rgba(74, 222, 128, .08);
+       border: 1px solid rgba(74, 222, 128, .22);
+       color: var(--agent);
+   }
 
-    /* ── Range edge labels ── */
-    .sf-range-edge {
-        font-size: .65rem;
-        color: var(--t3);
-        font-family: 'JetBrains Mono', monospace;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
+   @keyframes pulse-badge {
 
-    /* ── Endpointing contextual tips ── */
-    .sf-endpoint-tips {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 4px;
-    }
-    .ep-tip {
-        font-size: .65rem;
-        color: var(--t3);
-    }
-    .ep-tip.slow { color: rgba(45,212,191,.6); }
-    .ep-tip.fast { color: rgba(251,191,36,.6); }
+       0%,
+       100% {
+           opacity: 1
+       }
 
-    /* ── 4-tab spacing fix ── */
-    .sm-tab {
-        padding: 10px 12px;
-        font-size: .74rem;
-    }
+       50% {
+           opacity: .5
+       }
+   }
 
+   /* ─ Mark as Active button ─ */
+   .doc-activate-btn {
+       font-size: .62rem;
+       padding: 4px 10px;
+       border-radius: 8px;
+       background: rgba(167, 139, 250, .12);
+       border: 1.5px solid rgba(167, 139, 250, .35);
+       color: var(--violet);
+       cursor: pointer;
+       font-weight: 600;
+       white-space: nowrap;
+       transition: .15s;
+       flex-shrink: 0;
+   }
+
+   .doc-activate-btn:hover {
+       background: rgba(167, 139, 250, .22);
+       border-color: var(--violet);
+       box-shadow: 0 0 0 2px rgba(167, 139, 250, .18);
+   }
+
+   .activating-btn {
+       animation: pulse-badge 1s ease-in-out infinite;
+       cursor: not-allowed;
+       pointer-events: none;
+   }
+
+   /* ─ toast notifications ─ */
+   #toast-wrap {
+       position: fixed;
+       bottom: 80px;
+       right: 20px;
+       display: flex;
+       flex-direction: column;
+       gap: 8px;
+       z-index: 9999;
+   }
+
+   .toast {
+       font-size: .78rem;
+       padding: 10px 18px;
+       border-radius: 10px;
+       background: var(--s2);
+       border: 1px solid var(--br);
+       color: var(--text);
+       animation: fadein .2s ease;
+       max-width: 360px;
+   }
+
+   .toast.ok {
+       border-color: rgba(74, 222, 128, .3);
+       color: var(--agent);
+   }
+
+   .toast.err {
+       border-color: rgba(248, 113, 113, .3);
+       color: var(--err);
+   }
+
+   /* ── NEW: Toggle switch ── */
+   .switch {
+       position: relative;
+       display: inline-block;
+       width: 42px;
+       height: 24px;
+       flex-shrink: 0;
+       cursor: pointer;
+   }
+
+   .switch input {
+       opacity: 0;
+       width: 0;
+       height: 0;
+   }
+
+   .switch .slider {
+       position: absolute;
+       inset: 0;
+       background: var(--s3);
+       border: 1px solid var(--br2);
+       border-radius: 24px;
+       transition: .2s;
+   }
+
+   .switch .slider::before {
+       content: '';
+       position: absolute;
+       left: 3px;
+       top: 50%;
+       transform: translateY(-50%);
+       width: 16px;
+       height: 16px;
+       border-radius: 50%;
+       background: var(--t2);
+       transition: .2s;
+   }
+
+   .switch input:checked+.slider {
+       background: rgba(45, 212, 191, .18);
+       border-color: var(--teal);
+   }
+
+   .switch input:checked+.slider::before {
+       background: var(--teal);
+       transform: translateX(18px) translateY(-50%);
+       box-shadow: 0 0 8px rgba(45, 212, 191, .4);
+   }
+
+   .switch input:focus+.slider {
+       box-shadow: 0 0 0 2px rgba(45, 212, 191, .15);
+   }
+
+   /* ── Toggle row layout ── */
+   .sf-toggle-row {
+       display: flex;
+       align-items: center;
+       justify-content: space-between;
+       gap: 16px;
+       background: var(--s2);
+       border: 1px solid var(--br);
+       border-radius: 10px;
+       padding: 14px 16px;
+   }
+
+   .sf-toggle-label {
+       flex: 1;
+       display: flex;
+       flex-direction: column;
+       gap: 3px;
+   }
+
+   .sf-toggle-label label {
+       font-size: .71rem;
+       font-weight: 600;
+       color: var(--text);
+       text-transform: uppercase;
+       letter-spacing: .5px;
+       margin-bottom: 0;
+   }
+
+   /* ── Hint / sub-label ── */
+   .sf-hint {
+       font-size: .67rem;
+       font-weight: 400;
+       color: var(--t3);
+       text-transform: none;
+       letter-spacing: 0;
+       line-height: 1.4;
+       display: block;
+       margin-top: 2px;
+   }
+
+   /* ── Range edge labels ── */
+   .sf-range-edge {
+       font-size: .65rem;
+       color: var(--t3);
+       font-family: 'JetBrains Mono', monospace;
+       white-space: nowrap;
+       flex-shrink: 0;
+   }
+
+   /* ── Endpointing contextual tips ── */
+   .sf-endpoint-tips {
+       display: flex;
+       justify-content: space-between;
+       margin-top: 4px;
+   }
+
+   .ep-tip {
+       font-size: .65rem;
+       color: var(--t3);
+   }
+
+   .ep-tip.slow {
+       color: rgba(45, 212, 191, .6);
+   }
+
+   .ep-tip.fast {
+       color: rgba(251, 191, 36, .6);
+   }
+
+   /* ── 4-tab spacing fix ── */
+   .sm-tab {
+       padding: 10px 12px;
+       font-size: .74rem;
+   }

@@ -2,99 +2,53 @@ agent:
   defaults:
     barge_in: true
     endpointing: 800
-    filler_audio: false
-    greeting: Hi, this is Hardik calling from EshiaBIM. We work with architecture
-      and construction teams on BIM modelling and digital construction support. Do
-      you have a quick five minutes to talk right now?
-    llm_model: gpt-4o-mini
-    stt_model: nova-3
+    filler_audio: true
+    greeting: Hi, this is Anil from TrailTribe — we’re building something for trekkers.
+      Can I take 2 minutes to ask you something?
+    llm_model: openai/gpt-4o-mini
+    stt_model: deepgram/nova-3:en
     temperature: 0.6
     voice_emotion: helpful
-    voice_model: aura-2-asteria-en
+    voice_model: elevenlabs/eleven_flash_v2:2EiwWnXFnvU5JabPnv8n
     voice_speed: 0.95
   models:
     llm:
-    - id: gpt-4o-mini
-      label: GPT-4o Mini — Fast & cheap
-      provider: open_ai
-    - id: gpt-4o
-      label: GPT-4o — Smartest
-      provider: open_ai
-    - id: gpt-3.5-turbo
-      label: GPT-3.5 Turbo — Legacy
-      provider: open_ai
+    - id: openai/gpt-4o-mini
+      label: GPT-4o Mini
+    - id: openai/gpt-4o
+      label: GPT-4o
+    - id: google/gemini-2.5-flash
+      label: Gemini 2.5 Flash
+    - id: google/gemini-2.5-pro
+      label: Gemini 2.5 Pro
+    - id: deepseek/deepseek-v3
+      label: DeepSeek V3
     stt:
-    - id: nova-3
-      label: Nova 3 — Best accuracy
-    - id: nova-2
-      label: Nova 2 — Balanced
-    - id: nova
-      label: Nova — Fast
-    - id: enhanced
-      label: Enhanced
-    - id: base
-      label: Base — Fastest
+    - id: deepgram/nova-3:en
+      label: Deepgram Nova 3 (English)
+    - id: deepgram/flux:en
+      label: Deepgram Flux
+    - id: assemblyai/universal-3-pro
+      label: AssemblyAI Universal 3 Pro
+    - id: cartesia/ink-whisper
+      label: Cartesia Ink Whisper
     voice:
-    - family: Aura 2
+    - family: Cartesia
       gender: female
-      id: aura-2-thalia-en
-      label: Thalia
-    - family: Aura 2
-      gender: female
-      id: aura-2-andromeda-en
-      label: Andromeda
-    - family: Aura 2
-      gender: female
-      id: aura-2-phoebe-en
-      label: Phoebe
-    - family: Aura 2
-      gender: female
-      id: aura-2-luna-en
-      label: Luna
-    - family: Aura 2
-      gender: female
-      id: aura-2-asteria-en
-      label: Asteria
-    - family: Aura 2
+      id: cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc
+      label: English Female (Sonic 3)
+    - family: Cartesia
       gender: male
-      id: aura-2-orion-en
-      label: Orion
-    - family: Aura 2
-      gender: male
-      id: aura-2-arcas-en
-      label: Arcas
-    - family: Aura
+      id: cartesia/sonic-3:79a125e8-cd45-4c13-8a67-188112f4dd22
+      label: English Male (Sonic 3)
+    - family: ElevenLabs
       gender: female
-      id: aura-asteria-en
-      label: Asteria
-    - family: Aura
+      id: elevenlabs/eleven_flash_v2:2EiwWnXFnvU5JabPnv8n
+      label: Flash v2 (Expressive)
+    - family: Deepgram
       gender: female
-      id: aura-luna-en
-      label: Luna
-    - family: Aura
-      gender: female
-      id: aura-stella-en
-      label: Stella
-    - family: Aura
-      gender: female
-      id: aura-athena-en
-      label: Athena
-    - family: Aura
-      gender: female
-      id: aura-hera-en
-      label: Hera
-    - family: Aura
-      gender: male
-      id: aura-zeus-en
-      label: Zeus
-    - family: Aura
-      gender: male
-      id: aura-orion-en
-      label: Orion
-    - family: Aura
-      gender: male
-      id: aura-arcas-en
-      label: Arcas
+      id: deepgram/aura-2:asteria-en
+      label: Asteria (Aura 2)
 deepgram:
   audio:
     input:

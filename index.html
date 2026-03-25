@@ -190,178 +190,213 @@
   <div id="settings-modal">
     <div class="sm-box">
       <div class="sm-top">
-        <h2>⚙️ Agent Settings</h2>
+        <h2 id="settings-header">📂 Agent Library</h2>
         <button class="modal-close" onclick="closeSettingsModal()">✕</button>
       </div>
-      <div class="sm-tabs">
-        <div class="sm-tab active" onclick="switchTab('voice')" id="tab-voice">🎙️ Voice &amp; Speech</div>
-        <div class="sm-tab" onclick="switchTab('conversation')" id="tab-conversation">💬 Conversation</div>
-        <div class="sm-tab" onclick="switchTab('intelligence')" id="tab-intelligence">🤖 Intelligence</div>
-        <div class="sm-tab" onclick="switchTab('knowledge')" id="tab-knowledge">📚 Knowledge Base</div>
-        <div class="sm-tab" onclick="switchTab('developer')" id="tab-developer">👨‍💻 Developer</div>
-      </div>
 
-      <!-- Tab 1: Voice & Speech -->
-      <div class="sm-pane active" id="pane-voice">
-        <div class="sf-two">
-          <div class="sf-row">
-            <label>Voice Model (TTS)</label>
-            <select id="sm-voice">
-              <option disabled>Loading…</option>
-            </select>
-          </div>
-          <div class="sf-row">
-            <label>STT Model (Transcriber)</label>
-            <select id="sm-stt">
-              <option disabled>Loading…</option>
-            </select>
-          </div>
+      <!-- ── LIBRARY VIEW ── -->
+      <div id="view-library" class="view-container active">
+        <div class="active-agent-banner" id="active-agent-banner" style="display:none;">
+          <div
+            style="font-weight:600;font-size:0.8rem;color:var(--primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">
+            Current Active Agent</div>
+          <div id="aab-name" style="font-size:1.1rem;font-weight:600">Support Agent</div>
+          <div id="aab-desc" style="font-size:0.85rem;color:var(--t2);margin-top:2px">voice · llm</div>
         </div>
 
-        <div class="sf-row">
-          <label>Voice Speed <span class="sf-hint">0.8× (slow) → 1.5× (fast)</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">0.8×</span>
-            <input type="range" id="sm-voice-speed" min="0.8" max="1.5" step="0.05" value="1.0"
-              oninput="document.getElementById('sm-voice-speed-val').textContent=parseFloat(this.value).toFixed(2)+'×'">
-            <span class="sf-range-edge">1.5×</span>
-            <span class="sf-range-val" id="sm-voice-speed-val">1.00×</span>
-          </div>
-        </div>
-
-        <div class="sf-row">
-          <label>Emotion &amp; Style <span class="sf-hint">Shapes agent's tone in the system prompt</span></label>
-          <select id="sm-voice-emotion">
-            <option value="helpful">😊 Helpful — Warm &amp; Friendly</option>
-            <option value="professional">💼 Professional — Formal &amp; Precise</option>
-            <option value="empathetic">🤝 Empathetic — Caring &amp; Patient</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Tab 2: Conversation -->
-      <div class="sm-pane" id="pane-conversation">
-        <div class="sf-row sf-toggle-row">
-          <div class="sf-toggle-label">
-            <label>Barge-in (Interruption)</label>
-            <span class="sf-hint">Allow user to interrupt the agent mid-sentence</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="sm-barge-in" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="sf-row">
-          <label>Endpointing — Patience <span class="sf-hint">How long the STT waits in silence before deciding you've
-              finished speaking</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">500ms</span>
-            <input type="range" id="sm-endpointing" min="500" max="2000" step="50" value="800"
-              oninput="document.getElementById('sm-endpointing-val').textContent=this.value+'ms'">
-            <span class="sf-range-edge">2000ms</span>
-            <span class="sf-range-val" id="sm-endpointing-val">800ms</span>
-          </div>
-          <div class="sf-endpoint-tips">
-            <span class="ep-tip slow">🐢 High = patient (better for elderly)</span>
-            <span class="ep-tip fast">⚡ Low = fast-paced (debate style)</span>
-          </div>
-        </div>
-
-        <div class="sf-row sf-toggle-row">
-          <div class="sf-toggle-label">
-            <label>Filler Audio</label>
-            <span class="sf-hint">Agent says "Let me check…" during slow tool calls to prevent silence</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="sm-filler-audio">
-            <span class="slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Tab 3: Intelligence -->
-      <div class="sm-pane" id="pane-intelligence">
-        <div class="sf-row">
-          <label>LLM Model</label>
-          <select id="sm-llm">
-            <option disabled>Loading…</option>
-          </select>
-        </div>
-        <div class="sf-row">
-          <label>Temperature <span class="sf-hint">0 = strict &amp; deterministic · 1.5 = creative &amp;
-              varied</span></label>
-          <div class="sf-range-row">
-            <span class="sf-range-edge">0.0</span>
-            <input type="range" id="sm-temp" min="0" max="1.5" step="0.05" value="0.7"
-              oninput="document.getElementById('sm-temp-val').textContent=parseFloat(this.value).toFixed(2)">
-            <span class="sf-range-edge">1.5</span>
-            <span class="sf-range-val" id="sm-temp-val">0.70</span>
-          </div>
-        </div>
-        <div class="sf-row">
-          <label>First Message (Greeting)</label>
-          <input type="text" id="sm-greeting" placeholder="Agent's first words…">
-        </div>
-        <div class="sf-row">
-          <label>System Prompt <span style="color:var(--t3);text-transform:none;letter-spacing:0;font-weight:400">—
-              overrides the default Zenisth prompt for this run</span></label>
-          <textarea id="sm-prompt"
-            placeholder="Enter custom system prompt — leave blank to use the default Zenisth sales agent prompt…"></textarea>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
-          <button class="btn" onclick="resetPrompt()" style="font-size:.75rem">↺ Reset to Default</button>
-          <span id="sm-char-count" style="font-size:.68rem;color:var(--t3);margin-left:2px"></span>
-        </div>
-      </div>
-
-      <!-- Tab 4: Knowledge Base -->
-      <div class="sm-pane" id="pane-knowledge">
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="upload-file" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)">
-          <div class="upload-icon">📄</div>
-          <div class="upload-hint">Drag &amp; drop a PDF or <strong>click to browse</strong></div>
-          <div class="upload-hint" style="margin-top:4px;font-size:.72rem">Supported: PDF, DOCX, TXT (max 50MB)</div>
-        </div>
-        <div class="upload-progress" id="upload-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" id="upload-fill"></div>
-          </div>
-          <div class="progress-label" id="upload-label">Uploading…</div>
-        </div>
-        <div class="doc-list">
+        <div class="doc-list" style="margin-top:16px;">
           <div class="doc-list-hdr">
-            <span>📚 Document Library</span>
-            <span class="doc-hint">Click <strong>Mark as Active</strong> to ingest &amp; use</span>
+            <span>🤖 Saved Agents</span>
+            <button class="btn primary" onclick="createNewAgent()"
+              style="font-size:0.75rem;padding:5px 12px;background:var(--primary);color:var(--bg);border:none;">➕ Create
+              New Agent</button>
           </div>
-          <div id="doc-list-body">
-            <div class="doc-empty">Loading&hellip;</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 5: Developer -->
-      <div class="sm-pane" id="pane-developer">
-        <div class="sf-row">
-          <label>Deepgram API Key <span class="sf-hint">Provide your own key for testing. Leave blank to use server
-              default.</span></label>
-          <input type="password" id="sm-api-key" placeholder="Enter your Deepgram API Key (starts with dg_)..."
-            style="letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
-          <div style="margin-top: 8px; font-size: 0.72rem; color: var(--t3); line-height: 1.4;">
-            <p>Your API key is stored locally in your browser and is only used to establish the voice connection. It is
-              never saved on our server.</p>
+          <div id="agent-list-body">
+            <div class="doc-empty">Loading agents&hellip;</div>
           </div>
         </div>
       </div>
 
-      <div class="sm-footer">
-        <span class="save-status" id="save-status"></span>
-        <button class="btn" onclick="closeSettingsModal()">Cancel</button>
-        <button class="btn primary" onclick="saveSettings()">💾 Save Settings</button>
-      </div>
+      <!-- ── EDITOR VIEW ── -->
+      <div id="view-editor" class="view-container" style="display:none;">
+        <div class="sm-tabs">
+          <div class="sm-tab active" onclick="switchTab('voice')" id="tab-voice">🎙️ Voice &amp; Speech</div>
+          <div class="sm-tab" onclick="switchTab('conversation')" id="tab-conversation">💬 Conversation</div>
+          <div class="sm-tab" onclick="switchTab('intelligence')" id="tab-intelligence">🤖 Intelligence</div>
+          <div class="sm-tab" onclick="switchTab('knowledge')" id="tab-knowledge">📚 Knowledge Base</div>
+          <div class="sm-tab" onclick="switchTab('developer')" id="tab-developer">👨‍💻 Developer</div>
+        </div>
+
+        <!-- Tab 1: Voice & Speech -->
+        <div class="sm-pane active" id="pane-voice">
+          <div class="sf-two">
+            <div class="sf-row">
+              <label>Voice Model (TTS)</label>
+              <select id="sm-voice">
+                <option disabled>Loading…</option>
+              </select>
+            </div>
+            <div class="sf-row">
+              <label>STT Model (Transcriber)</label>
+              <select id="sm-stt">
+                <option disabled>Loading…</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="sf-row">
+            <label>Voice Speed <span class="sf-hint">0.8× (slow) → 1.5× (fast)</span></label>
+            <div class="sf-range-row">
+              <span class="sf-range-edge">0.8×</span>
+              <input type="range" id="sm-voice-speed" min="0.8" max="1.5" step="0.05" value="1.0"
+                oninput="document.getElementById('sm-voice-speed-val').textContent=parseFloat(this.value).toFixed(2)+'×'">
+              <span class="sf-range-edge">1.5×</span>
+              <span class="sf-range-val" id="sm-voice-speed-val">1.00×</span>
+            </div>
+          </div>
+
+          <div class="sf-row">
+            <label>Emotion &amp; Style <span class="sf-hint">Shapes agent's tone in the system prompt</span></label>
+            <select id="sm-voice-emotion">
+              <option value="helpful">😊 Helpful — Warm &amp; Friendly</option>
+              <option value="professional">💼 Professional — Formal &amp; Precise</option>
+              <option value="empathetic">🤝 Empathetic — Caring &amp; Patient</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tab 2: Conversation -->
+        <div class="sm-pane" id="pane-conversation">
+          <div class="sf-row sf-toggle-row">
+            <div class="sf-toggle-label">
+              <label>Barge-in (Interruption)</label>
+              <span class="sf-hint">Allow user to interrupt the agent mid-sentence</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="sm-barge-in" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="sf-row">
+            <label>Endpointing — Patience <span class="sf-hint">How long the STT waits in silence before deciding you've
+                finished speaking</span></label>
+            <div class="sf-range-row">
+              <span class="sf-range-edge">500ms</span>
+              <input type="range" id="sm-endpointing" min="500" max="2000" step="50" value="800"
+                oninput="document.getElementById('sm-endpointing-val').textContent=this.value+'ms'">
+              <span class="sf-range-edge">2000ms</span>
+              <span class="sf-range-val" id="sm-endpointing-val">800ms</span>
+            </div>
+            <div class="sf-endpoint-tips">
+              <span class="ep-tip slow">🐢 High = patient (better for elderly)</span>
+              <span class="ep-tip fast">⚡ Low = fast-paced (debate style)</span>
+            </div>
+          </div>
+
+          <div class="sf-row sf-toggle-row">
+            <div class="sf-toggle-label">
+              <label>Filler Audio</label>
+              <span class="sf-hint">Agent says "Let me check…" during slow tool calls to prevent silence</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="sm-filler-audio">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Tab 3: Intelligence -->
+        <div class="sm-pane" id="pane-intelligence">
+          <div class="sf-row">
+            <label>LLM Model</label>
+            <select id="sm-llm">
+              <option disabled>Loading…</option>
+            </select>
+          </div>
+          <div class="sf-row">
+            <label>Temperature <span class="sf-hint">0 = strict &amp; deterministic · 1.5 = creative &amp;
+                varied</span></label>
+            <div class="sf-range-row">
+              <span class="sf-range-edge">0.0</span>
+              <input type="range" id="sm-temp" min="0" max="1.5" step="0.05" value="0.7"
+                oninput="document.getElementById('sm-temp-val').textContent=parseFloat(this.value).toFixed(2)">
+              <span class="sf-range-edge">1.5</span>
+              <span class="sf-range-val" id="sm-temp-val">0.70</span>
+            </div>
+          </div>
+          <div class="sf-row">
+            <label>First Message (Greeting)</label>
+            <input type="text" id="sm-greeting" placeholder="Agent's first words…">
+          </div>
+          <div class="sf-row">
+            <label>System Prompt <span style="color:var(--t3);text-transform:none;letter-spacing:0;font-weight:400">—
+                overrides the default Zenisth prompt for this run</span></label>
+            <textarea id="sm-prompt"
+              placeholder="Enter custom system prompt — leave blank to use the default Zenisth sales agent prompt…"></textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+            <button class="btn" onclick="resetPrompt()" style="font-size:.75rem">↺ Reset to Default</button>
+            <span id="sm-char-count" style="font-size:.68rem;color:var(--t3);margin-left:2px"></span>
+          </div>
+        </div>
+
+        <!-- Tab 4: Knowledge Base -->
+        <div class="sm-pane" id="pane-knowledge">
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="upload-file" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)">
+            <div class="upload-icon">📄</div>
+            <div class="upload-hint">Drag &amp; drop a PDF or <strong>click to browse</strong></div>
+            <div class="upload-hint" style="margin-top:4px;font-size:.72rem">Supported: PDF, DOCX, TXT (max 50MB)</div>
+          </div>
+          <div class="upload-progress" id="upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="upload-fill"></div>
+            </div>
+            <div class="progress-label" id="upload-label">Uploading…</div>
+          </div>
+          <div class="doc-list">
+            <div class="doc-list-hdr">
+              <span>📚 Document Library</span>
+              <span class="doc-hint">Click <strong>Mark as Active</strong> to ingest &amp; use</span>
+            </div>
+            <div id="doc-list-body">
+              <div class="doc-empty">Loading&hellip;</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Developer -->
+        <div class="sm-pane" id="pane-developer">
+          <div class="sf-row">
+            <label>Deepgram API Key <span class="sf-hint">Provide your own key for testing. Leave blank to use server
+                default.</span></label>
+            <input type="password" id="sm-api-key" placeholder="Enter your Deepgram API Key (starts with dg_)..."
+              style="letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+            <div style="margin-top: 8px; font-size: 0.72rem; color: var(--t3); line-height: 1.4;">
+              <p>Your API key is stored locally in your browser and is only used to establish the voice connection. It
+                is
+                never saved on our server.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="sm-footer">
+          <span class="save-status" id="save-status"></span>
+          <button class="btn" style="background:var(--card);border:1px solid var(--border);color:var(--t1)"
+            onclick="showLibraryView()">← Back to Library</button>
+          <button class="btn" id="btn-update-agent"
+            style="display:none;background:var(--primary);color:var(--bg);border:1px solid var(--primary);"
+            onclick="commitAgentSave('update')">🔄 Save Changes to Agent</button>
+          <button class="btn primary" id="btn-save-new" onclick="commitAgentSave('new')">💾 Save as New Agent</button>
+        </div>
+      </div> <!-- /view-editor -->
     </div>
   </div>
-  <script src="script.js"></script>
+  <!-- LiveKit JS SDK (exposes window.LivekitClient) -->
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+  <script src="script.js?v=2"></script>
+
 </body>
 
 </html>
